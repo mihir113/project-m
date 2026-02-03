@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -15,9 +15,17 @@ const NAV_ITEMS = [
 ];
 
 export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);   // desktop collapse
+  const [collapsed, setCollapsed] = useState(true);   // desktop collapse — default collapsed
   const [mobileOpen, setMobileOpen] = useState(false); // mobile drawer
   const pathname = usePathname();
+
+  // On mount: expand sidebar only if screen is wide enough
+  useEffect(() => {
+    const expand = () => setCollapsed(window.innerWidth < 1024);
+    expand();
+    window.addEventListener("resize", expand);
+    return () => window.removeEventListener("resize", expand);
+  }, []);
 
   // Close mobile drawer whenever the route changes
   useEffect(() => {
@@ -46,6 +54,7 @@ export function Sidebar() {
         <Link
           key={item.href}
           href={item.href}
+          onClick={() => { if (isMobile) setMobileOpen(false); }}
           className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-150"
           style={{
             backgroundColor: isActive ? "rgba(79,111,245,0.12)" : "transparent",
@@ -76,7 +85,7 @@ export function Sidebar() {
 
   // ── logo / brand block ─────────────────────────────
   const renderBrand = (showLabel: boolean) => (
-    <div className="p-4 flex items-center gap-3 border-b border-default">
+    <Link href="/" className="p-4 flex items-center gap-3 border-b border-default hover:opacity-80 transition-opacity" style={{ textDecoration: "none" }}>
       <div
         className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: "#4f6ff5" }}
@@ -86,7 +95,7 @@ export function Sidebar() {
       {showLabel && (
         <span className="text-primary font-semibold text-base">Project M</span>
       )}
-    </div>
+    </Link>
   );
 
   // ── MOBILE: hamburger button (always visible on small screens) ──
@@ -135,7 +144,7 @@ export function Sidebar() {
       >
         {/* Close button + brand */}
         <div className="flex items-center justify-between p-4 border-b border-default">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity" style={{ textDecoration: "none" }}>
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: "#4f6ff5" }}
@@ -143,7 +152,7 @@ export function Sidebar() {
               <span className="text-white font-bold text-sm">M</span>
             </div>
             <span className="text-primary font-semibold text-base">Project M</span>
-          </div>
+          </Link>
           <button
             onClick={() => setMobileOpen(false)}
             className="flex items-center justify-center rounded-lg transition-colors"

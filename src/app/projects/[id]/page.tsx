@@ -65,6 +65,19 @@ export default function ProjectDetailPage() {
   });
   const [savingReq, setSavingReq] = useState(false);
 
+  // ── Edit Requirement modal ──
+  const [editModalReq, setEditModalReq] = useState<Requirement | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "", description: "",
+    type: "one-time" as "recurring" | "one-time",
+    recurrence: "quarterly" as string,
+    dueDate: "",
+    ownerId: "",
+    isPerMemberCheckIn: false,
+    templateId: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
   // ── Simple completion modal ──
   const [completeModalReq, setCompleteModalReq] = useState<Requirement | null>(null);
   const [completeNotes, setCompleteNotes] = useState("");
@@ -141,6 +154,60 @@ export default function ProjectDetailPage() {
       setReqForm({ name: "", description: "", type: "one-time", recurrence: "quarterly", dueDate: new Date().toISOString().split("T")[0], ownerId: "", isPerMemberCheckIn: false, templateId: "" });
       await fetchData();
     } finally { setSavingReq(false); }
+  };
+
+  // ── Open Edit modal — seed form from existing requirement ──
+  const openEdit = (req: Requirement) => {
+    setEditForm({
+      name: req.name,
+      description: req.description || "",
+      type: req.type as "recurring" | "one-time",
+      recurrence: req.recurrence || "quarterly",
+      dueDate: req.dueDate,
+      ownerId: req.ownerId || "",
+      isPerMemberCheckIn: req.isPerMemberCheckIn,
+      templateId: req.templateId || "",
+    });
+    setEditModalReq(req);
+  };
+
+  // ── Edit Requirement ──
+  const handleEditRequirement = async () => {
+    if (!editModalReq || !editForm.name.trim()) return;
+    setSavingEdit(true);
+    try {
+      const res = await fetch("/api/requirements", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editModalReq.id,
+          name: editForm.name,
+          description: editForm.description || null,
+          type: editForm.type,
+          recurrence: editForm.type === "recurring" ? editForm.recurrence : null,
+          dueDate: editForm.dueDate,
+          ownerId: editForm.ownerId || null,
+          isPerMemberCheckIn: editForm.isPerMemberCheckIn,
+          templateId: editForm.templateId || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) { showToast(json.error || "Failed", "error"); return; }
+      showToast(`Updated "${editForm.name}"`, "success");
+      setEditModalReq(null);
+      await fetchData();
+    } finally { setSavingEdit(false); }
+  };
+
+  // ── Delete Requirement ──
+  const handleDeleteRequirement = async (req: Requirement) => {
+    try {
+      const res = await fetch(`/api/requirements?id=${req.id}`, { method: "DELETE" });
+      if (!res.ok) { showToast("Failed to delete", "error"); return; }
+      showToast(`Deleted "${req.name}"`, "success");
+      setEditModalReq(null);
+      await fetchData();
+    } catch { showToast("Failed to delete", "error"); }
   };
 
   // ── Simple Completion ──
@@ -396,6 +463,8 @@ export default function ProjectDetailPage() {
                     : <button className="btn-primary text-xs" onClick={() => { setCompleteModalReq(req); setCompleteNotes(""); }}>✓ Complete</button>
                 )}
                 {req.isPerMemberCheckIn && <button className="btn-ghost text-xs" onClick={() => openHistory(req)}>History</button>}
+                <button className="btn-ghost text-xs" onClick={() => openEdit(req)} title="Edit">✎</button>
+                <button className="btn-danger text-xs" onClick={() => handleDeleteRequirement(req)} title="Delete">✕</button>
               </div>
             </div>
           ))}
@@ -485,6 +554,89 @@ export default function ProjectDetailPage() {
             <button className="btn-primary" onClick={handleAddRequirement} disabled={savingReq || !reqForm.name.trim()}>
               {savingReq ? "Adding..." : "Add Requirement"}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Edit Requirement Modal ── */}
+      <Modal open={!!editModalReq} onClose={() => setEditModalReq(null)} title="Edit Requirement">
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted mb-1 block">Name</label>
+            <input className="input-field" placeholder="e.g. Weekly backup check" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
+          </div>
+          <div>
+            <label className="text-xs text-muted mb-1 block">Description (optional)</label>
+            <textarea className="input-field" rows={2} placeholder="Details..." value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+          </div>
+
+          {/* Type toggle */}
+          <div className="flex gap-2">
+            {["one-time", "recurring"].map((t) => (
+              <button key={t} onClick={() => setEditForm({ ...editForm, type: t as any })}
+                className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{ backgroundColor: editForm.type === t ? "#4f6ff5" : "#1e2130", color: editForm.type === t ? "#fff" : "#9a9eb5" }}>
+                {t === "one-time" ? "One-time" : "Recurring"}
+              </button>
+            ))}
+          </div>
+
+          {editForm.type === "recurring" && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Recurrence</label>
+              <select className="input-field" value={editForm.recurrence} onChange={(e) => setEditForm({ ...editForm, recurrence: e.target.value })}>
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Due Date</label>
+            <input type="date" className="input-field" value={editForm.dueDate} onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })} />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Owner (optional)</label>
+            <select className="input-field" value={editForm.ownerId} onChange={(e) => setEditForm({ ...editForm, ownerId: e.target.value })}>
+              <option value="">Unassigned</option>
+              {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.nick} — {m.role}</option>)}
+            </select>
+          </div>
+
+          {/* Per-member check-in toggle */}
+          <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: "#1e2130" }}>
+            <div>
+              <p className="text-sm text-primary font-medium">Per-member check-in</p>
+              <p className="text-xs text-muted">One submission per team member each cycle</p>
+            </div>
+            <button onClick={() => setEditForm({ ...editForm, isPerMemberCheckIn: !editForm.isPerMemberCheckIn, templateId: "" })}
+              className="w-10 h-5 rounded-full transition-colors relative" style={{ backgroundColor: editForm.isPerMemberCheckIn ? "#4f6ff5" : "#2a2d3a" }}>
+              <div className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" style={{ left: editForm.isPerMemberCheckIn ? "22px" : "2px" }} />
+            </button>
+          </div>
+
+          {/* Template picker — only if per-member is on */}
+          {editForm.isPerMemberCheckIn && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Check-in Template (optional)</label>
+              <select className="input-field" value={editForm.templateId} onChange={(e) => setEditForm({ ...editForm, templateId: e.target.value })}>
+                <option value="">No template</option>
+                {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="flex justify-between pt-2">
+            <button className="btn-danger" onClick={() => handleDeleteRequirement(editModalReq!)}>Delete</button>
+            <div className="flex gap-2">
+              <button className="btn-ghost" onClick={() => setEditModalReq(null)}>Cancel</button>
+              <button className="btn-primary" onClick={handleEditRequirement} disabled={savingEdit || !editForm.name.trim()}>
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

@@ -54,12 +54,12 @@ export default function DashboardPage() {
         <p className="text-secondary text-sm mt-1">Welcome back to Project M</p>
       </div>
 
-      {/* Stat Cards */}
+      {/* Stat Cards — each is a drill-down link */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Active Projects" value={stats.activeProjects} color="#4f6ff5" />
-        <StatCard label="Total Requirements" value={stats.totalRequirements} color="#9a9eb5" />
-        <StatCard label="Completed" value={stats.completedRequirements} color="#34d399" />
-        <StatCard label="Completion %" value={`${completionPct}%`} color="#fbbf24" />
+        <StatCard label="Active Projects" value={stats.activeProjects} color="#4f6ff5" href="/projects" />
+        <StatCard label="Total Requirements" value={stats.totalRequirements} color="#9a9eb5" href="/projects" />
+        <StatCard label="Completed" value={stats.completedRequirements} color="#34d399" href="/projects" />
+        <StatCard label="Completion %" value={`${completionPct}%`} color="#fbbf24" href="/projects" />
       </div>
 
       {/* Project List */}
@@ -86,38 +86,27 @@ export default function DashboardPage() {
                 <Link
                   key={project.id}
                   href={`/projects/${project.id}`}
-                  className="flex items-center gap-4 p-3 rounded-lg transition-colors hover:bg-tertiary"
+                  className="flex items-center gap-4 p-3 rounded-lg transition-colors"
                   style={{ textDecoration: "none" }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#1e2130")}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
                 >
-                  {/* Color dot */}
-                  <div
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: project.color }}
-                  />
-
-                  {/* Name + description */}
+                  <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-primary text-sm font-medium truncate">{project.name}</p>
                     {project.description && (
                       <p className="text-muted text-xs truncate">{project.description}</p>
                     )}
                   </div>
-
-                  {/* Progress bar */}
                   <div className="w-32 flex-shrink-0">
                     <div className="flex justify-between text-xs text-muted mb-1">
                       <span>{done}/{total}</span>
                       <span>{pct}%</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: "#1e2130" }}>
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{ width: `${pct}%`, backgroundColor: project.color }}
-                      />
+                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
                     </div>
                   </div>
-
-                  {/* Status badge */}
                   <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"} flex-shrink-0`}>
                     {project.status}
                   </span>
@@ -131,12 +120,18 @@ export default function DashboardPage() {
   );
 }
 
-// ─── Stat Card Component ───
-function StatCard({ label, value, color }: { label: string; value: string | number; color: string }) {
+// ─── Stat Card — clickable drill-down ───
+function StatCard({ label, value, color, href }: { label: string; value: string | number; color: string; href: string }) {
   return (
-    <div className="card p-4">
+    <Link
+      href={href}
+      className="card p-4 block transition-all duration-150"
+      style={{ textDecoration: "none", cursor: "pointer" }}
+      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#1e2130")}
+      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#171923")}
+    >
       <p className="text-muted text-xs uppercase tracking-wide mb-1">{label}</p>
       <p className="text-2xl font-bold" style={{ color }}>{value}</p>
-    </div>
+    </Link>
   );
 }
