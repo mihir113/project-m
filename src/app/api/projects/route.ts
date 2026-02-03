@@ -8,7 +8,8 @@ export async function GET() {
   try {
     const rows = await db
       .select({
-        ...projects,
+        // 2. Use getTableColumns(projects) instead of ...projects
+        ...getTableColumns(projects),
         totalRequirements: sql<number>`COUNT(${requirements.id})`,
         completedRequirements: sql<number>`COUNT(CASE WHEN ${requirements.status} = 'completed' THEN 1 END)`,
       })
