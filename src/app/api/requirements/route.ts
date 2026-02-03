@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
         ownerId: ownerId || null,
         isPerMemberCheckIn: isPerMemberCheckIn || false,
         templateId: templateId || null,
+      })
       .returning();
 
     // If metric templates were provided (for per-member check-ins), insert them too
