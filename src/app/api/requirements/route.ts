@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/client";
 import { requirements, teamMembers, metricTemplates } from "@/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+// 1. Add getTableColumns to your imports
+import { eq, and, sql, getTableColumns } from "drizzle-orm";
 
 // GET /api/requirements?projectId=<uuid>&status=<status>&ownerId=<uuid>
 // All filters are optional except projectId
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
 
     const rows = await db
       .select({
-        ...requirements,
+        // 2. Use getTableColumns(requirements) instead of ...requirements
+        ...getTableColumns(requirements),
         ownerNick: teamMembers.nick,
         ownerRole: teamMembers.role,
         metricCount: sql<number>`(SELECT COUNT(*) FROM metric_templates WHERE metric_templates.requirement_id = ${requirements.id})`,
