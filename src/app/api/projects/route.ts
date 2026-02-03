@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/client";
 import { projects, requirements } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, getTableColumns } from "drizzle-orm";
 
 // GET /api/projects — list all projects with requirement counts
 export async function GET() {
