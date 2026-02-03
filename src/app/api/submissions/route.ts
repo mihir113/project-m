@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { submissions, metricEntries, teamMembers, metricTemplates } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { submissions, teamMembers } from "@/db/schema";
+// 1. Add getTableColumns to your imports
+import { eq, getTableColumns } from "drizzle-orm";
 
 // GET /api/submissions?requirementId=<uuid>&cycleLabel=<label>
 // Fetches submissions for a requirement, optionally filtered by cycle.
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
     // Get submissions with team member info
     const rows = await db
       .select({
-        ...submissions,
+        // 2. Use getTableColumns(submissions) instead of ...submissions
+        ...getTableColumns(submissions),
         teamMemberNick: teamMembers.nick,
         teamMemberRole: teamMembers.role,
       })
