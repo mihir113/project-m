@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base reset & dark mode foundation ─── */
+@layer base {
+  html {
+  }
+
+  body {
+    background-color: #0f1117;
+    color: #f0f1f3;
+    font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2d3a;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #3a3d4a;
+  }
+
+  /* Input base styles */
+  input, select, textarea {
+    background-color: #1e2130;
+    border-color: #2a2d3a;
+    color: #f0f1f3;
+  }
+  input:focus, select:focus, textarea:focus {
+    border-color: #4f6ff5;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(79, 111, 245, 0.15);
+  }
+  input::placeholder, textarea::placeholder {
+    color: #6b6f7e;
+  }
+  select option {
+    background-color: #252838;
+  }
+}
+
+/* ─── Utility classes ─── */
+@layer utilities {
+  .text-primary { color: #f0f1f3; }
+  .text-secondary { color: #9a9eb5; }
+  .text-muted { color: #6b6f7e; }
+
+  .bg-primary { background-color: #0f1117; }
+  .bg-secondary { background-color: #171923; }
+  .bg-tertiary { background-color: #1e2130; }
+  .bg-elevated { background-color: #252838; }
+
+  .border-default { border-color: #2a2d3a; }
+  .border-focus { border-color: #4f6ff5; }
+
+  .card {
+    background-color: #171923;
+    border: 1px solid #2a2d3a;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
+
+  .btn-primary {
+    background-color: #4f6ff5;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary:hover {
+    background-color: #6b85f7;
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+  .btn-primary:disabled {
+    background-color: #3a4a8a;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: #9a9eb5;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-ghost:hover {
+    background-color: #1e2130;
+    color: #f0f1f3;
+    border-color: #2a2d3a;
+  }
+
+  .btn-danger {
+    background-color: transparent;
+    color: #f87171;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .btn-danger:hover {
+    background-color: rgba(248, 113, 113, 0.1);
+    border-color: rgba(248, 113, 113, 0.3);
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid #2a2d3a;
+    background-color: #1e2130;
+    color: #f0f1f3;
+    font-size: 0.9rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input-field:focus {
+    border-color: #4f6ff5;
+    box-shadow: 0 0 0 2px rgba(79, 111, 245, 0.15);
+    outline: none;
+  }
+
+  /* Status badges */
+  .badge-pending {
+    background-color: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-completed {
+    background-color: rgba(52, 211, 153, 0.12);
+    color: #34d399;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-overdue {
+    background-color: rgba(248, 113, 113, 0.12);
+    color: #f87171;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+}
