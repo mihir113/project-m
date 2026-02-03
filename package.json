@@ -16,7 +16,7 @@
     "autoprefixer": "^10.4.24",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
-    "next": "^15.1.0",
+    "next": "^15.5.7",
     "papaparse": "^5.4.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
