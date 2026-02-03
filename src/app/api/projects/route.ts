@@ -7,12 +7,11 @@ import { eq, sql, getTableColumns } from "drizzle-orm";
 export async function GET() {
   try {
     const rows = await db
-      .select({
-        // 2. Use getTableColumns(projects) instead of ...projects
-        ...getTableColumns(projects),
-        totalRequirements: sql<number>`COUNT(${requirements.id})`,
-        completedRequirements: sql<number>`COUNT(CASE WHEN ${requirements.status} = 'completed' THEN 1 END)`,
-      })
+  .select({
+    ...getTableColumns(projects), // Fixes the spread error
+    totalRequirements: sql<number>`COUNT(${requirements.id})`,
+    completedRequirements: sql<number>`COUNT(CASE WHEN ${requirements.status} = 'completed' THEN 1 END)`,
+  })
       .from(projects)
       .leftJoin(requirements, eq(requirements.projectId, projects.id))
       .groupBy(projects.id)

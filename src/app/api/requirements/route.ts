@@ -20,14 +20,13 @@ export async function GET(req: NextRequest) {
     if (status && status !== "all") conditions.push(eq(requirements.status, status as any));
     if (ownerId) conditions.push(eq(requirements.ownerId, ownerId));
 
-    const rows = await db
-      .select({
-        // 2. Use getTableColumns(requirements) instead of ...requirements
-        ...getTableColumns(requirements),
-        ownerNick: teamMembers.nick,
-        ownerRole: teamMembers.role,
-        metricCount: sql<number>`(SELECT COUNT(*) FROM metric_templates WHERE metric_templates.requirement_id = ${requirements.id})`,
-      })
+   const rows = await db
+  .select({
+    ...getTableColumns(requirements), // Fixes the spread error
+    ownerNick: teamMembers.nick,
+    ownerRole: teamMembers.role,
+    metricCount: sql<number>`(SELECT COUNT(*) FROM metric_templates WHERE metric_templates.requirement_id = ${requirements.id})`,
+  })
       .from(requirements)
       .leftJoin(teamMembers, eq(teamMembers.id, requirements.ownerId))
       .where(and(...conditions))
