@@ -22,7 +22,7 @@ export default function RootLayout({
             <Sidebar />
 
             {/* Main content area — takes up the rest of the screen */}
-            <main className="flex-1 overflow-auto" style={{ minWidth: 0 }}>
+            <main className="flex-1 overflow-auto pt-16 md:pt-0" style={{ minWidth: 0 }}>
               <div className="max-w-5xl mx-auto p-6">
                 {children}
               </div>
