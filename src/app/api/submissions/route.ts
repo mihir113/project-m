@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { submissions, teamMembers } from "@/db/schema";
-// 1. Add getTableColumns to your imports
-import { eq, getTableColumns } from "drizzle-orm";
+import { submissions, teamMembers, metricEntries, metricTemplates } from "@/db/schema";
+// Added 'and' and 'getTableColumns' to imports
+import { eq, and, getTableColumns } from "drizzle-orm";
 
 // GET /api/submissions?requirementId=<uuid>&cycleLabel=<label>
-// Fetches submissions for a requirement, optionally filtered by cycle.
-// Returns submissions with their team member info and metric entries.
 export async function GET(req: NextRequest) {
   try {
     const requirementId = req.nextUrl.searchParams.get("requirementId");
@@ -22,7 +20,7 @@ export async function GET(req: NextRequest) {
     // Get submissions with team member info
     const rows = await db
       .select({
-        // 2. Use getTableColumns(submissions) instead of ...submissions
+        // Fixed: Use getTableColumns instead of spreading the table object
         ...getTableColumns(submissions),
         teamMemberNick: teamMembers.nick,
         teamMemberRole: teamMembers.role,
@@ -37,7 +35,8 @@ export async function GET(req: NextRequest) {
       rows.map(async (sub) => {
         const entries = await db
           .select({
-            ...metricEntries,
+            // Fixed: Use getTableColumns for metricEntries as well
+            ...getTableColumns(metricEntries),
             metricName: metricTemplates.metricName,
             targetValue: metricTemplates.targetValue,
             unit: metricTemplates.unit,
@@ -54,19 +53,12 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: enriched });
   } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Failed to fetch submissions" }, { status: 500 });
   }
 }
 
 // POST /api/submissions — log a completion
-//
-// For SIMPLE requirements:
-//   Body: { requirementId, notes? }
-//   → creates one submission row, no metric entries
-//
-// For PER-MEMBER check-ins:
-//   Body: { requirementId, teamMemberId, cycleLabel, notes?, metricEntries: [{ metricTemplateId, actualValue, comments? }] }
-//   → creates one submission + one metric_entry per metric
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -101,10 +93,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: submission }, { status: 201 });
   } catch (err) {
+    console.error(err);
     return NextResponse.json({ error: "Failed to log submission" }, { status: 500 });
   }
 }
-
-// GET /api/submissions/cycles?requirementId=<uuid>
-// Returns all distinct cycle labels for a requirement (for the History tab)
-// This is handled in the cycles sub-route file
