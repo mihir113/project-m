@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
 
 interface Task {
@@ -19,6 +20,12 @@ interface Task {
   ownerNick: string | null;
 }
 
+interface TeamMember {
+  id: string;
+  nick: string;
+  role: string;
+}
+
 interface GroupedTasks {
   [projectId: string]: {
     projectName: string;
@@ -29,16 +36,35 @@ interface GroupedTasks {
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [completingTask, setCompletingTask] = useState<string | null>(null);
   const { showToast } = useToast();
 
+  // Edit modal state
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    description: "",
+    dueDate: "",
+    ownerId: "",
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const fetchTasks = async () => {
     try {
-      // Fetch all projects to get all their pending tasks
-      const projectsRes = await fetch("/api/projects");
-      const projectsJson = await projectsRes.json();
+      // Fetch all projects and team members
+      const [projectsRes, teamRes] = await Promise.all([
+        fetch("/api/projects"),
+        fetch("/api/team"),
+      ]);
+      const [projectsJson, teamJson] = await Promise.all([
+        projectsRes.json(),
+        teamRes.json(),
+      ]);
       const projects = projectsJson.data || [];
+      setTeamMembers(teamJson.data || []);
 
       // Fetch pending tasks for all projects
       const allTasks: Task[] = [];
@@ -81,6 +107,44 @@ export default function TasksPage() {
       showToast("Failed to complete task", "error");
     } finally {
       setCompletingTask(null);
+    }
+  };
+
+  // Open edit modal
+  const openEdit = (task: Task) => {
+    setEditingTask(task);
+    setEditForm({
+      name: task.name,
+      description: task.description || "",
+      dueDate: task.dueDate,
+      ownerId: task.ownerId || "",
+    });
+    setEditModalOpen(true);
+  };
+
+  // Save edited task
+  const handleSaveEdit = async () => {
+    if (!editingTask || !editForm.name.trim() || !editForm.dueDate) return;
+    setSavingEdit(true);
+    try {
+      await fetch("/api/requirements", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingTask.id,
+          name: editForm.name.trim(),
+          description: editForm.description.trim() || null,
+          dueDate: editForm.dueDate,
+          ownerId: editForm.ownerId || null,
+        }),
+      });
+      showToast("Task updated", "success");
+      setEditModalOpen(false);
+      await fetchTasks();
+    } catch {
+      showToast("Failed to update task", "error");
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -170,15 +234,22 @@ export default function TasksPage() {
                       </div>
                     </div>
 
-                    {/* Complete Button */}
-                    <button
-                      onClick={() => handleComplete(task)}
-                      disabled={completingTask === task.id}
-                      className="btn-primary text-xs whitespace-nowrap"
-                      style={{ minWidth: "100px" }}
-                    >
-                      {completingTask === task.id ? "Completing..." : "✓ Complete"}
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openEdit(task)}
+                        className="btn-ghost text-xs"
+                      >
+                        ✎ Edit
+                      </button>
+                      <button
+                        onClick={() => handleComplete(task)}
+                        disabled={completingTask === task.id}
+                        className="btn-primary text-xs whitespace-nowrap"
+                      >
+                        {completingTask === task.id ? "..." : "✓ Complete"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -186,6 +257,74 @@ export default function TasksPage() {
           ))}
         </div>
       )}
+
+      {/* Edit Modal */}
+      <Modal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        title="Edit Task"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted mb-1 block">Task Name</label>
+            <input
+              className="input-field"
+              value={editForm.name}
+              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Description (optional)</label>
+            <textarea
+              className="input-field"
+              rows={2}
+              value={editForm.description}
+              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Due Date</label>
+            <input
+              type="date"
+              className="input-field"
+              value={editForm.dueDate}
+              onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Owner (optional)</label>
+            <select
+              className="input-field"
+              value={editForm.ownerId}
+              onChange={(e) => setEditForm({ ...editForm, ownerId: e.target.value })}
+            >
+              <option value="">Unassigned</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nick} — {m.role}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button className="btn-ghost" onClick={() => setEditModalOpen(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleSaveEdit}
+              disabled={savingEdit || !editForm.name.trim() || !editForm.dueDate}
+            >
+              {savingEdit ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
+
