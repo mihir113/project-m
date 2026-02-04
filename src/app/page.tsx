@@ -248,24 +248,24 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3">
             <h2 className="text-base font-semibold text-primary">Projects</h2>
             {/* View Mode Toggle */}
-            <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: "#1e2130" }}>
+            <div className="flex gap-1 rounded-lg p-1 bg-tertiary">
               <button
                 onClick={() => setViewMode("list")}
-                className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: viewMode === "list" ? "#252838" : "transparent",
-                  color: viewMode === "list" ? "#f0f1f3" : "#9a9eb5",
-                }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  viewMode === "list"
+                    ? "bg-elevated text-primary"
+                    : "text-secondary"
+                }`}
               >
                 List
               </button>
               <button
                 onClick={() => setViewMode("board")}
-                className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: viewMode === "board" ? "#252838" : "transparent",
-                  color: viewMode === "board" ? "#f0f1f3" : "#9a9eb5",
-                }}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  viewMode === "board"
+                    ? "bg-elevated text-primary"
+                    : "text-secondary"
+                }`}
               >
                 Board
               </button>
@@ -274,16 +274,16 @@ export default function DashboardPage() {
 
           <div className="flex items-center gap-3">
             {/* Status Filter */}
-            <div className="flex gap-1 rounded-lg p-1" style={{ backgroundColor: "#1e2130" }}>
+            <div className="flex gap-1 rounded-lg p-1 bg-tertiary">
               {["all", "active", "on-hold", "completed"].map((s) => (
                 <button
                   key={s}
                   onClick={() => setStatusFilter(s)}
-                  className="px-3 py-1 rounded-md text-xs font-medium transition-colors"
-                  style={{
-                    backgroundColor: statusFilter === s ? "#252838" : "transparent",
-                    color: statusFilter === s ? "#f0f1f3" : "#9a9eb5",
-                  }}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    statusFilter === s
+                      ? "bg-elevated text-primary"
+                      : "text-secondary"
+                  }`}
                 >
                   {s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}
                 </button>
@@ -389,10 +389,8 @@ function ListView({ projects }: { projects: ProjectWithCounts[] }) {
           <Link
             key={project.id}
             href={`/projects/${project.id}`}
-            className="block p-3 rounded-lg transition-colors"
+            className="block p-3 rounded-lg transition-colors hover:bg-tertiary"
             style={{ textDecoration: "none" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#1e2130")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
           >
             {/* Mobile-friendly layout */}
             <div className="flex items-start gap-3">
@@ -403,7 +401,7 @@ function ListView({ projects }: { projects: ProjectWithCounts[] }) {
                   <div className="flex-1 min-w-0">
                     <p className="text-primary text-sm font-medium break-words">{project.name}</p>
                     {project.category && (
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs mt-1" style={{ backgroundColor: "#1e2130", color: "#9a9eb5" }}>
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs mt-1 bg-tertiary text-secondary">
                         {project.category}
                       </span>
                     )}
@@ -422,7 +420,7 @@ function ListView({ projects }: { projects: ProjectWithCounts[] }) {
                     <span>{done}/{total} tasks</span>
                     <span>{pct}%</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: "#1e2130" }}>
+                  <div className="w-full h-1.5 rounded-full bg-tertiary">
                     <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
                   </div>
                 </div>
@@ -503,8 +501,8 @@ function BoardColumn({
 }) {
   return (
     <div
-      className="flex-shrink-0 rounded-lg p-4"
-      style={{ width: "280px", backgroundColor: "#1e2130" }}
+      className="flex-shrink-0 rounded-lg p-4 bg-tertiary"
+      style={{ width: "280px" }}
       onDragOver={onDragOver}
       onDrop={(e) => onDrop(e, categoryKey)}
     >
@@ -549,14 +547,11 @@ function ProjectCard({
         href={`/projects/${project.id}`}
         draggable
         onDragStart={(e) => onDragStart(e, project.id)}
-        className="block p-3 rounded-lg transition-all cursor-move"
+        className="block p-3 rounded-lg transition-all cursor-move bg-secondary hover:bg-elevated"
         style={{
-          backgroundColor: "#171923",
           borderLeft: `3px solid ${project.color}`,
           textDecoration: "none",
         }}
-        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#252838")}
-        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#171923")}
       >
         <div className="flex items-start justify-between mb-2">
           <p className="text-primary text-sm font-medium">{project.name}</p>
@@ -571,7 +566,7 @@ function ProjectCard({
           <span>{done}/{total} requirements</span>
           <span>{pct}%</span>
         </div>
-        <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: "#1e2130" }}>
+        <div className="w-full h-1.5 rounded-full bg-tertiary">
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
         </div>
       </Link>
@@ -596,10 +591,8 @@ function StatCard({ label, value, color, href }: { label: string; value: string 
   return (
     <Link
       href={href}
-      className="card p-4 block transition-all duration-150"
+      className="card p-4 block transition-all duration-150 hover:bg-tertiary"
       style={{ textDecoration: "none", cursor: "pointer" }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#1e2130")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#171923")}
     >
       <p className="text-muted text-xs uppercase tracking-wide mb-1">{label}</p>
       <p className="text-2xl font-bold" style={{ color }}>{value}</p>

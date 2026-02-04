@@ -297,8 +297,7 @@ export default function TasksPage() {
                 {tasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg"
-                    style={{ backgroundColor: "#1e2130" }}
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-tertiary"
                   >
                     {/* Task Info */}
                     <div className="flex-1 min-w-0">
@@ -306,8 +305,8 @@ export default function TasksPage() {
                         <p className="text-primary text-sm font-medium">{task.name}</p>
                         {task.recurrence && (
                           <span
-                            className="px-2 py-0.5 rounded-full text-xs flex-shrink-0"
-                            style={{ backgroundColor: "#171923", color: "#fbbf24" }}
+                            className="px-2 py-0.5 rounded-full text-xs flex-shrink-0 bg-secondary"
+                            style={{ color: "#fbbf24" }}
                           >
                             ↻ {task.recurrence}
                           </span>
@@ -399,11 +398,11 @@ export default function TasksPage() {
               <button
                 key={t}
                 onClick={() => setAddForm({ ...addForm, type: t as any })}
-                className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: addForm.type === t ? "#4f6ff5" : "#1e2130",
-                  color: addForm.type === t ? "#fff" : "#9a9eb5",
-                }}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  addForm.type === t
+                    ? "bg-[#4f6ff5] text-white"
+                    : "bg-tertiary text-secondary"
+                }`}
               >
                 {t === "one-time" ? "One-time" : "Recurring"}
               </button>
@@ -453,10 +452,7 @@ export default function TasksPage() {
           </div>
 
           {/* Per-member check-in toggle */}
-          <div
-            className="flex items-center justify-between p-3 rounded-lg"
-            style={{ backgroundColor: "#1e2130" }}
-          >
+          <div className="flex items-center justify-between p-3 rounded-lg bg-tertiary">
             <div>
               <p className="text-sm text-primary font-medium">Per-member check-in</p>
               <p className="text-xs text-muted">One submission per team member each cycle</p>
@@ -469,10 +465,9 @@ export default function TasksPage() {
                   templateId: "",
                 })
               }
-              className="w-10 h-5 rounded-full transition-colors relative"
-              style={{
-                backgroundColor: addForm.isPerMemberCheckIn ? "#4f6ff5" : "#2a2d3a",
-              }}
+              className={`w-10 h-5 rounded-full transition-colors relative ${
+                addForm.isPerMemberCheckIn ? "bg-[#4f6ff5]" : "bg-elevated"
+              }`}
             >
               <div
                 className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
