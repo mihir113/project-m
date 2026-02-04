@@ -15,8 +15,8 @@ export async function GET() {
         color: projects.color,
         category: projects.category,
         createdAt: projects.createdAt,
-        totalRequirements: sql<number>`(SELECT COUNT(*) FROM ${requirements} WHERE ${requirements.projectId} = ${projects.id})`,
-        completedRequirements: sql<number>`(SELECT COUNT(*) FROM ${requirements} WHERE ${requirements.projectId} = ${projects.id} AND ${requirements.status} = 'completed')`,
+        totalRequirements: sql<number>`(SELECT COUNT(*) FROM requirements WHERE project_id = ${projects.id})`,
+        completedRequirements: sql<number>`(SELECT COUNT(*) FROM requirements WHERE project_id = ${projects.id} AND status = 'completed')`,
       })
       .from(projects)
       .orderBy(projects.createdAt);
