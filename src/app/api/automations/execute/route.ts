@@ -8,10 +8,10 @@ import { eq, and } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   try {
     // Optional: Add authentication here
-    //const token = req.headers.get("x-cron-secret");
-    //if (process.env.CRON_SECRET && token !== process.env.CRON_SECRET) {
-    //  return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    //}
+    const token = req.headers.get("x-cron-secret");
+    if (process.env.CRON_SECRET && token !== process.env.CRON_SECRET) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Get all enabled automations
     const automations = await db
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
       if (auto.skipIfExists) {
         // Check if a pending task with this name created TODAY already exists
-        // This prevents creating duplicates if cron runs multiple times in one day
+        // If yes, delete it and create a fresh one (this handles "replace" behavior)
         const existing = await db
           .select()
           .from(requirements)
@@ -80,20 +80,22 @@ export async function POST(req: NextRequest) {
             and(
               eq(requirements.projectId, auto.projectId),
               eq(requirements.name, auto.taskName),
-              eq(requirements.status, "pending"),
-              eq(requirements.dueDate, todayStr) // Only check tasks created today
+              eq(requirements.status, "pending")
             )
           )
           .limit(1);
 
         if (existing.length > 0) {
+          // Delete the old one
+          await db.delete(requirements).where(eq(requirements.id, existing[0].id));
+          
           results.push({
             automationId: auto.id,
             taskName: auto.taskName,
-            action: "skipped",
-            reason: "Pending task with same name and due date already exists",
+            action: "replaced",
+            reason: "Deleted existing pending task and creating new one",
+            deletedTaskId: existing[0].id,
           });
-          continue;
         }
       }
 

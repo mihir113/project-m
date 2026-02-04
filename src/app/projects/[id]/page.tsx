@@ -49,7 +49,7 @@ export default function ProjectDetailPage() {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]); // flat list for dropdown
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [filterOwner, setFilterOwner] = useState("all");
 
   // ── Add Requirement modal ──
