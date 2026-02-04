@@ -84,6 +84,8 @@ export const taskAutomations = pgTable("task_automations", {
   taskName: text("task_name").notNull(),
   description: text("description"),
   recurrence: recurrenceEnum("recurrence").notNull(), // daily, weekly, monthly, quarterly
+  dayOfWeek: integer("day_of_week"), // 0=Sunday, 1=Monday, ..., 6=Saturday (for weekly only)
+  dayOfMonth: integer("day_of_month"), // 1-31 (for monthly only)
   skipIfExists: boolean("skip_if_exists").default(true).notNull(), // Don't create if pending task with same name exists
   enabled: boolean("enabled").default(true).notNull(),
   ownerId: uuid("owner_id").references(() => teamMembers.id),

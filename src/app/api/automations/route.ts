@@ -15,6 +15,8 @@ export async function GET() {
         taskName: taskAutomations.taskName,
         description: taskAutomations.description,
         recurrence: taskAutomations.recurrence,
+        dayOfWeek: taskAutomations.dayOfWeek,
+        dayOfMonth: taskAutomations.dayOfMonth,
         skipIfExists: taskAutomations.skipIfExists,
         enabled: taskAutomations.enabled,
         ownerId: taskAutomations.ownerId,
@@ -35,11 +37,11 @@ export async function GET() {
 }
 
 // POST /api/automations — create a new automation rule
-// Body: { projectId, taskName, description?, recurrence, skipIfExists?, enabled?, ownerId? }
+// Body: { projectId, taskName, description?, recurrence, dayOfWeek?, dayOfMonth?, skipIfExists?, enabled?, ownerId? }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { projectId, taskName, description, recurrence, skipIfExists, enabled, ownerId } = body;
+    const { projectId, taskName, description, recurrence, dayOfWeek, dayOfMonth, skipIfExists, enabled, ownerId } = body;
 
     if (!projectId || !taskName || !recurrence) {
       return NextResponse.json(
@@ -55,6 +57,8 @@ export async function POST(req: NextRequest) {
         taskName: taskName.trim(),
         description: description?.trim() || null,
         recurrence,
+        dayOfWeek: dayOfWeek !== undefined ? dayOfWeek : null,
+        dayOfMonth: dayOfMonth !== undefined ? dayOfMonth : null,
         skipIfExists: skipIfExists !== undefined ? skipIfExists : true,
         enabled: enabled !== undefined ? enabled : true,
         ownerId: ownerId || null,
@@ -73,7 +77,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, taskName, description, recurrence, skipIfExists, enabled, ownerId } = body;
+    const { id, taskName, description, recurrence, dayOfWeek, dayOfMonth, skipIfExists, enabled, ownerId } = body;
 
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -83,6 +87,8 @@ export async function PUT(req: NextRequest) {
     if (taskName !== undefined) updates.taskName = taskName.trim();
     if (description !== undefined) updates.description = description?.trim() || null;
     if (recurrence !== undefined) updates.recurrence = recurrence;
+    if (dayOfWeek !== undefined) updates.dayOfWeek = dayOfWeek;
+    if (dayOfMonth !== undefined) updates.dayOfMonth = dayOfMonth;
     if (skipIfExists !== undefined) updates.skipIfExists = skipIfExists;
     if (enabled !== undefined) updates.enabled = enabled;
     if (ownerId !== undefined) updates.ownerId = ownerId || null;

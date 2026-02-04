@@ -24,6 +24,8 @@ interface Automation {
   taskName: string;
   description: string | null;
   recurrence: string;
+  dayOfWeek: number | null;
+  dayOfMonth: number | null;
   skipIfExists: boolean;
   enabled: boolean;
   ownerId: string | null;
@@ -49,6 +51,8 @@ export default function AutomationsPage() {
     taskName: "",
     description: "",
     recurrence: "weekly" as string,
+    dayOfWeek: null as number | null,
+    dayOfMonth: null as number | null,
     skipIfExists: true,
     enabled: true,
     ownerId: "",
@@ -111,6 +115,8 @@ export default function AutomationsPage() {
       taskName: "",
       description: "",
       recurrence: "weekly",
+      dayOfWeek: 1, // Default to Monday
+      dayOfMonth: 1, // Default to 1st
       skipIfExists: true,
       enabled: true,
       ownerId: defaultOwnerId || "",
@@ -125,6 +131,8 @@ export default function AutomationsPage() {
       taskName: auto.taskName,
       description: auto.description || "",
       recurrence: auto.recurrence,
+      dayOfWeek: auto.dayOfWeek,
+      dayOfMonth: auto.dayOfMonth,
       skipIfExists: auto.skipIfExists,
       enabled: auto.enabled,
       ownerId: auto.ownerId || "",
@@ -291,6 +299,12 @@ export default function AutomationsPage() {
                     style={{ backgroundColor: "#1e2130", color: "#fbbf24" }}
                   >
                     ↻ {auto.recurrence}
+                    {auto.recurrence === "weekly" && auto.dayOfWeek !== null && 
+                      ` · ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][auto.dayOfWeek]}`
+                    }
+                    {auto.recurrence === "monthly" && auto.dayOfMonth !== null && 
+                      ` · ${auto.dayOfMonth}${["th", "st", "nd", "rd"][auto.dayOfMonth % 10 > 3 ? 0 : auto.dayOfMonth % 10]}`
+                    }
                   </span>
                   {auto.skipIfExists && (
                     <span
@@ -404,6 +418,50 @@ export default function AutomationsPage() {
               <option value="quarterly">Quarterly</option>
             </select>
           </div>
+
+          {/* Day of Week selector (for weekly) */}
+          {form.recurrence === "weekly" && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Day of Week</label>
+              <select
+                className="input-field"
+                value={form.dayOfWeek !== null ? form.dayOfWeek : ""}
+                onChange={(e) =>
+                  setForm({ ...form, dayOfWeek: e.target.value ? parseInt(e.target.value) : null })
+                }
+              >
+                <option value="">Any day</option>
+                <option value="0">Sunday</option>
+                <option value="1">Monday</option>
+                <option value="2">Tuesday</option>
+                <option value="3">Wednesday</option>
+                <option value="4">Thursday</option>
+                <option value="5">Friday</option>
+                <option value="6">Saturday</option>
+              </select>
+            </div>
+          )}
+
+          {/* Day of Month selector (for monthly) */}
+          {form.recurrence === "monthly" && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Day of Month</label>
+              <select
+                className="input-field"
+                value={form.dayOfMonth !== null ? form.dayOfMonth : ""}
+                onChange={(e) =>
+                  setForm({ ...form, dayOfMonth: e.target.value ? parseInt(e.target.value) : null })
+                }
+              >
+                <option value="">1st of the month</option>
+                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                  <option key={day} value={day}>
+                    {day}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className="text-xs text-muted mb-1 block">Owner (optional)</label>
