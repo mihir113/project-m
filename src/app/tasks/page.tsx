@@ -26,6 +26,17 @@ interface TeamMember {
   role: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface Template {
+  id: string;
+  name: string;
+}
+
 interface GroupedTasks {
   [projectId: string]: {
     projectName: string;
@@ -37,9 +48,26 @@ interface GroupedTasks {
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [completingTask, setCompletingTask] = useState<string | null>(null);
   const { showToast } = useToast();
+
+  // Add modal state
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [addForm, setAddForm] = useState({
+    projectId: "",
+    name: "",
+    description: "",
+    type: "one-time" as "recurring" | "one-time",
+    recurrence: "quarterly",
+    dueDate: new Date().toISOString().split("T")[0],
+    ownerId: "",
+    isPerMemberCheckIn: false,
+    templateId: "",
+  });
+  const [savingAdd, setSavingAdd] = useState(false);
 
   // Edit modal state
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -54,21 +82,25 @@ export default function TasksPage() {
 
   const fetchTasks = async () => {
     try {
-      // Fetch all projects and team members
-      const [projectsRes, teamRes] = await Promise.all([
+      // Fetch all projects, team members, and templates
+      const [projectsRes, teamRes, tmplRes] = await Promise.all([
         fetch("/api/projects"),
         fetch("/api/team"),
+        fetch("/api/check-in-templates"),
       ]);
-      const [projectsJson, teamJson] = await Promise.all([
+      const [projectsJson, teamJson, tmplJson] = await Promise.all([
         projectsRes.json(),
         teamRes.json(),
+        tmplRes.json(),
       ]);
-      const projects = projectsJson.data || [];
+      const projectsData = projectsJson.data || [];
+      setProjects(projectsData);
       setTeamMembers(teamJson.data || []);
+      setTemplates(tmplJson.data || []);
 
       // Fetch pending tasks for all projects
       const allTasks: Task[] = [];
-      for (const project of projects) {
+      for (const project of projectsData) {
         const tasksRes = await fetch(`/api/requirements?projectId=${project.id}&status=pending`);
         const tasksJson = await tasksRes.json();
         const projectTasks = (tasksJson.data || []).map((t: any) => ({
@@ -92,6 +124,57 @@ export default function TasksPage() {
   useEffect(() => {
     fetchTasks();
   }, []);
+
+  // Open add modal
+  const openAdd = () => {
+    setAddForm({
+      projectId: projects.length > 0 ? projects[0].id : "",
+      name: "",
+      description: "",
+      type: "one-time",
+      recurrence: "quarterly",
+      dueDate: new Date().toISOString().split("T")[0],
+      ownerId: "",
+      isPerMemberCheckIn: false,
+      templateId: "",
+    });
+    setAddModalOpen(true);
+  };
+
+  // Add new task
+  const handleAddTask = async () => {
+    if (!addForm.name.trim() || !addForm.projectId) return;
+    setSavingAdd(true);
+    try {
+      const res = await fetch("/api/requirements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: addForm.projectId,
+          name: addForm.name,
+          description: addForm.description || null,
+          type: addForm.type,
+          recurrence: addForm.type === "recurring" ? addForm.recurrence : null,
+          dueDate: addForm.dueDate,
+          ownerId: addForm.ownerId || null,
+          isPerMemberCheckIn: addForm.isPerMemberCheckIn,
+          templateId: addForm.templateId || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error || "Failed to create task", "error");
+        return;
+      }
+      showToast(`Created "${addForm.name}"`, "success");
+      setAddModalOpen(false);
+      await fetchTasks();
+    } catch {
+      showToast("Failed to create task", "error");
+    } finally {
+      setSavingAdd(false);
+    }
+  };
 
   const handleComplete = async (task: Task) => {
     setCompletingTask(task.id);
@@ -172,11 +255,16 @@ export default function TasksPage() {
   return (
     <div className="animate-fadeIn">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-primary">My Tasks</h1>
-        <p className="text-secondary text-sm mt-1">
-          {tasks.length} open task{tasks.length !== 1 ? "s" : ""} across {Object.keys(groupedTasks).length} project{Object.keys(groupedTasks).length !== 1 ? "s" : ""}
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-primary">My Tasks</h1>
+          <p className="text-secondary text-sm mt-1">
+            {tasks.length} open task{tasks.length !== 1 ? "s" : ""} across {Object.keys(groupedTasks).length} project{Object.keys(groupedTasks).length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <button className="btn-primary" onClick={openAdd}>
+          + New Task
+        </button>
       </div>
 
       {tasks.length === 0 ? (
@@ -257,6 +345,184 @@ export default function TasksPage() {
           ))}
         </div>
       )}
+
+      {/* Add Task Modal */}
+      <Modal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
+        title="Add Task"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted mb-1 block">Project</label>
+            <select
+              className="input-field"
+              value={addForm.projectId}
+              onChange={(e) => setAddForm({ ...addForm, projectId: e.target.value })}
+            >
+              {projects.length === 0 ? (
+                <option value="">No projects available</option>
+              ) : (
+                projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Task Name</label>
+            <input
+              className="input-field"
+              placeholder="e.g. Weekly backup check"
+              value={addForm.name}
+              onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Description (optional)</label>
+            <textarea
+              className="input-field"
+              rows={2}
+              placeholder="Details..."
+              value={addForm.description}
+              onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+            />
+          </div>
+
+          {/* Type toggle */}
+          <div className="flex gap-2">
+            {["one-time", "recurring"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setAddForm({ ...addForm, type: t as any })}
+                className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{
+                  backgroundColor: addForm.type === t ? "#4f6ff5" : "#1e2130",
+                  color: addForm.type === t ? "#fff" : "#9a9eb5",
+                }}
+              >
+                {t === "one-time" ? "One-time" : "Recurring"}
+              </button>
+            ))}
+          </div>
+
+          {addForm.type === "recurring" && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Recurrence</label>
+              <select
+                className="input-field"
+                value={addForm.recurrence}
+                onChange={(e) => setAddForm({ ...addForm, recurrence: e.target.value })}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Due Date</label>
+            <input
+              type="date"
+              className="input-field"
+              value={addForm.dueDate}
+              onChange={(e) => setAddForm({ ...addForm, dueDate: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Owner (optional)</label>
+            <select
+              className="input-field"
+              value={addForm.ownerId}
+              onChange={(e) => setAddForm({ ...addForm, ownerId: e.target.value })}
+            >
+              <option value="">Unassigned</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nick} — {m.role}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Per-member check-in toggle */}
+          <div
+            className="flex items-center justify-between p-3 rounded-lg"
+            style={{ backgroundColor: "#1e2130" }}
+          >
+            <div>
+              <p className="text-sm text-primary font-medium">Per-member check-in</p>
+              <p className="text-xs text-muted">One submission per team member each cycle</p>
+            </div>
+            <button
+              onClick={() =>
+                setAddForm({
+                  ...addForm,
+                  isPerMemberCheckIn: !addForm.isPerMemberCheckIn,
+                  templateId: "",
+                })
+              }
+              className="w-10 h-5 rounded-full transition-colors relative"
+              style={{
+                backgroundColor: addForm.isPerMemberCheckIn ? "#4f6ff5" : "#2a2d3a",
+              }}
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                style={{ left: addForm.isPerMemberCheckIn ? "22px" : "2px" }}
+              />
+            </button>
+          </div>
+
+          {/* Template picker — only if per-member is on */}
+          {addForm.isPerMemberCheckIn && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Check-in Template (optional)</label>
+              <select
+                className="input-field"
+                value={addForm.templateId}
+                onChange={(e) => setAddForm({ ...addForm, templateId: e.target.value })}
+              >
+                <option value="">No template</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              {templates.length === 0 && (
+                <p className="text-xs text-muted mt-1">
+                  No templates yet — create one on the{" "}
+                  <a href="/templates" className="underline" style={{ color: "#4f6ff5" }}>
+                    Templates
+                  </a>{" "}
+                  page.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button className="btn-ghost" onClick={() => setAddModalOpen(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleAddTask}
+              disabled={savingAdd || !addForm.name.trim() || !addForm.projectId}
+            >
+              {savingAdd ? "Adding..." : "Add Task"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Edit Modal */}
       <Modal
