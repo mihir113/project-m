@@ -16,8 +16,6 @@ interface ProjectWithCounts {
   completedRequirements: number;
 }
 
-type ViewMode = "list" | "board";
-
 const COLOR_OPTIONS = [
   "#4f6ff5", "#e879a0", "#a78bfa", "#60a5fa",
   "#34d399", "#fbbf24", "#fb923c", "#f472b6",
@@ -29,7 +27,6 @@ const STATUS_OPTIONS = ["active", "on-hold", "completed"];
 export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const { showToast } = useToast();
 
@@ -171,47 +168,22 @@ export default function DashboardPage() {
     return p.status === statusFilter;
   });
 
-  // Group projects by category for board view
-  const boardCategories = Array.from(
-    new Set(filteredProjects.map((p) => p.category).filter(Boolean))
-  ) as string[];
-  const uncategorized = filteredProjects.filter((p) => !p.category);
-
-  // Drag and drop handlers
-  const handleDragStart = (e: React.DragEvent, projectId: string) => {
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", projectId);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetCategory: string | null) => {
-    e.preventDefault();
-    const projectId = e.dataTransfer.getData("text/plain");
-    const project = projects.find((p) => p.id === projectId);
-    
-    if (!project || project.category === targetCategory) return;
-
-    // Optimistic update
-    setProjects((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, category: targetCategory } : p))
-    );
-
-    // API update
-    try {
-      await fetch("/api/projects", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: projectId, category: targetCategory }),
-      });
-    } catch {
-      // Revert on error
-      fetchProjects();
+  // Group projects by category
+  const projectsByCategory = filteredProjects.reduce<Record<string, ProjectWithCounts[]>>((acc, project) => {
+    const category = project.category || "Uncategorized";
+    if (!acc[category]) {
+      acc[category] = [];
     }
-  };
+    acc[category].push(project);
+    return acc;
+  }, {});
+
+  // Sort categories alphabetically, but keep "Uncategorized" at the end
+  const sortedCategories = Object.keys(projectsByCategory).sort((a, b) => {
+    if (a === "Uncategorized") return 1;
+    if (b === "Uncategorized") return -1;
+    return a.localeCompare(b);
+  });
 
   if (loading) {
     return (
@@ -241,36 +213,11 @@ export default function DashboardPage() {
         <StatCard label="Completed" value={stats.completedRequirements} color="#34d399" href="/projects?status=completed" />
       </div>
 
-      {/* View Toggle + Filters */}
-      <div className="card p-6">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div className="flex items-center gap-3">
-            <h2 className="text-base font-semibold text-primary">Projects</h2>
-            {/* View Mode Toggle */}
-            <div className="flex gap-1 rounded-lg p-1 bg-tertiary">
-              <button
-                onClick={() => setViewMode("list")}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  viewMode === "list"
-                    ? "bg-elevated text-primary"
-                    : "text-secondary"
-                }`}
-              >
-                List
-              </button>
-              <button
-                onClick={() => setViewMode("board")}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  viewMode === "board"
-                    ? "bg-elevated text-primary"
-                    : "text-secondary"
-                }`}
-              >
-                Board
-              </button>
-            </div>
-          </div>
-
+      {/* Filters and Projects */}
+      <div className="space-y-6">
+        {/* Filter Bar */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-lg font-semibold text-primary">Projects by Category</h2>
           <div className="flex items-center gap-3">
             {/* Status Filter */}
             <div className="flex gap-1 rounded-lg p-1 bg-tertiary">
@@ -288,30 +235,97 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-            <Link href="/projects" className="text-sm" style={{ color: "#4f6ff5" }}>
+            <Link href="/projects" className="text-sm whitespace-nowrap" style={{ color: "#4f6ff5" }}>
               View all →
             </Link>
           </div>
         </div>
 
+        {/* Projects Grouped by Category */}
         {filteredProjects.length === 0 ? (
-          <p className="text-muted text-sm py-6 text-center">
-            {projects.length === 0
-              ? "No projects yet. Head to Projects to create your first one."
-              : "No projects match the selected filter."}
-          </p>
-        ) : viewMode === "list" ? (
-          <ListView projects={filteredProjects} />
+          <div className="card p-12 text-center">
+            <p className="text-muted text-sm">
+              {projects.length === 0
+                ? "No projects yet. Create your first project to get started!"
+                : "No projects match the selected filter."}
+            </p>
+          </div>
         ) : (
-          <BoardView
-            categories={boardCategories}
-            uncategorized={uncategorized}
-            projects={filteredProjects}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onEdit={openEdit}
-          />
+          <div className="space-y-6">
+            {sortedCategories.map((category) => (
+              <div key={category} className="card p-6">
+                {/* Category Header */}
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-default">
+                  <div className="flex-1">
+                    <h3 className="text-base font-semibold text-primary">{category}</h3>
+                    <p className="text-xs text-muted mt-0.5">
+                      {projectsByCategory[category].length} project{projectsByCategory[category].length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Project Cards Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projectsByCategory[category].map((project) => (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className="block p-4 rounded-lg border border-default hover:shadow-md transition-all bg-secondary"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
+                          style={{ backgroundColor: project.color }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-primary mb-1 break-words">
+                            {project.name}
+                          </h4>
+                          <span className={`badge-${project.status} text-xs`}>
+                            {project.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      {project.description && (
+                        <p className="text-xs text-secondary mb-3 line-clamp-2">
+                          {project.description}
+                        </p>
+                      )}
+
+                      {/* Progress */}
+                      <div>
+                        <div className="flex justify-between text-xs text-muted mb-1">
+                          <span>
+                            {project.completedRequirements} / {project.totalRequirements} tasks
+                          </span>
+                          <span>
+                            {project.totalRequirements > 0
+                              ? Math.round((project.completedRequirements / project.totalRequirements) * 100)
+                              : 0}%
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 rounded-full bg-tertiary">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${
+                                project.totalRequirements > 0
+                                  ? Math.round((project.completedRequirements / project.totalRequirements) * 100)
+                                  : 0
+                              }%`,
+                              backgroundColor: project.color,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -371,216 +385,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </Modal>
-    </div>
-  );
-}
-
-// ─── List View ───
-function ListView({ projects }: { projects: ProjectWithCounts[] }) {
-  return (
-    <div className="space-y-3">
-      {projects.map((project) => {
-        const total = Number(project.totalRequirements);
-        const done = Number(project.completedRequirements);
-        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-
-        return (
-          <Link
-            key={project.id}
-            href={`/projects/${project.id}`}
-            className="block p-3 rounded-lg transition-colors hover:bg-tertiary"
-            style={{ textDecoration: "none" }}
-          >
-            {/* Mobile-friendly layout */}
-            <div className="flex items-start gap-3">
-              <div className="w-3 h-3 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: project.color }} />
-              <div className="flex-1 min-w-0">
-                {/* Header row with name and status */}
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-primary text-sm font-medium break-words">{project.name}</p>
-                    {project.category && (
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs mt-1 bg-tertiary text-secondary">
-                        {project.category}
-                      </span>
-                    )}
-                  </div>
-                  <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"} flex-shrink-0 text-xs`}>
-                    {project.status}
-                  </span>
-                </div>
-                {/* Description */}
-                {project.description && (
-                  <p className="text-muted text-xs mb-2 line-clamp-2">{project.description}</p>
-                )}
-                {/* Progress bar */}
-                <div>
-                  <div className="flex justify-between text-xs text-muted mb-1">
-                    <span>{done}/{total} tasks</span>
-                    <span>{pct}%</span>
-                  </div>
-                  <div className="w-full h-1.5 rounded-full bg-tertiary">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── Board View ───
-function BoardView({
-  categories,
-  uncategorized,
-  projects,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onEdit,
-}: {
-  categories: string[];
-  uncategorized: ProjectWithCounts[];
-  projects: ProjectWithCounts[];
-  onDragStart: (e: React.DragEvent, id: string) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, category: string | null) => void;
-  onEdit: (project: ProjectWithCounts) => void;
-}) {
-  return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
-      {/* Uncategorized Column */}
-      <BoardColumn
-        title="Uncategorized"
-        projects={uncategorized}
-        categoryKey={null}
-        onDragStart={onDragStart}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        onEdit={onEdit}
-      />
-
-      {/* Category Columns */}
-      {categories.map((cat) => (
-        <BoardColumn
-          key={cat}
-          title={cat}
-          projects={projects.filter((p) => p.category === cat)}
-          categoryKey={cat}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-          onEdit={onEdit}
-        />
-      ))}
-    </div>
-  );
-}
-
-// ─── Board Column ───
-function BoardColumn({
-  title,
-  projects,
-  categoryKey,
-  onDragStart,
-  onDragOver,
-  onDrop,
-  onEdit,
-}: {
-  title: string;
-  projects: ProjectWithCounts[];
-  categoryKey: string | null;
-  onDragStart: (e: React.DragEvent, id: string) => void;
-  onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, category: string | null) => void;
-  onEdit: (project: ProjectWithCounts) => void;
-}) {
-  return (
-    <div
-      className="flex-shrink-0 rounded-lg p-4 bg-tertiary"
-      style={{ width: "280px" }}
-      onDragOver={onDragOver}
-      onDrop={(e) => onDrop(e, categoryKey)}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold text-primary">{title}</h3>
-        <span className="text-xs text-muted">{projects.length}</span>
-      </div>
-      <div className="space-y-2">
-        {projects.map((project) => (
-          <ProjectCard key={project.id} project={project} onDragStart={onDragStart} onEdit={onEdit} />
-        ))}
-        {projects.length === 0 && (
-          <p className="text-muted text-xs text-center py-8">Drop projects here</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Project Card (draggable) ───
-function ProjectCard({
-  project,
-  onDragStart,
-  onEdit,
-}: {
-  project: ProjectWithCounts;
-  onDragStart: (e: React.DragEvent, id: string) => void;
-  onEdit: (project: ProjectWithCounts) => void;
-}) {
-  const total = Number(project.totalRequirements);
-  const done = Number(project.completedRequirements);
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const [showEdit, setShowEdit] = useState(false);
-
-  return (
-    <div
-      className="relative"
-      onMouseEnter={() => setShowEdit(true)}
-      onMouseLeave={() => setShowEdit(false)}
-    >
-      <Link
-        href={`/projects/${project.id}`}
-        draggable
-        onDragStart={(e) => onDragStart(e, project.id)}
-        className="block p-3 rounded-lg transition-all cursor-move bg-secondary hover:bg-elevated"
-        style={{
-          borderLeft: `3px solid ${project.color}`,
-          textDecoration: "none",
-        }}
-      >
-        <div className="flex items-start justify-between mb-2">
-          <p className="text-primary text-sm font-medium">{project.name}</p>
-          <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"} text-xs`}>
-            {project.status}
-          </span>
-        </div>
-        {project.description && (
-          <p className="text-muted text-xs mb-2 line-clamp-2">{project.description}</p>
-        )}
-        <div className="flex justify-between text-xs text-muted mb-1">
-          <span>{done}/{total} requirements</span>
-          <span>{pct}%</span>
-        </div>
-        <div className="w-full h-1.5 rounded-full bg-tertiary">
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
-        </div>
-      </Link>
-      {showEdit && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit(project);
-          }}
-          className="absolute top-2 right-2 btn-ghost text-xs px-2 py-1"
-          style={{ zIndex: 10 }}
-        >
-          ✎ Edit
-        </button>
-      )}
     </div>
   );
 }
