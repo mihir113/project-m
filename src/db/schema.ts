@@ -49,6 +49,17 @@ export const teamMembers = pgTable("team_members", {
 });
 
 // ─────────────────────────────────────────────
+// TABLE: user_settings
+// Single-row table for app-wide user preferences
+// ─────────────────────────────────────────────
+export const userSettings = pgTable("user_settings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  defaultOwnerId: uuid("default_owner_id").references(() => teamMembers.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
 // TABLE: projects
 // ─────────────────────────────────────────────
 export const projects = pgTable("projects", {
@@ -59,6 +70,25 @@ export const projects = pgTable("projects", {
   color: text("color").default("#4f6ff5").notNull(),
   category: text("category"), // Project category for board view organization
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
+// TABLE: task_automations
+// Rules for automatic task creation
+// ─────────────────────────────────────────────
+export const taskAutomations = pgTable("task_automations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .references(() => projects.id, { onDelete: "cascade" })
+    .notNull(),
+  taskName: text("task_name").notNull(),
+  description: text("description"),
+  recurrence: recurrenceEnum("recurrence").notNull(), // daily, weekly, monthly, quarterly
+  skipIfExists: boolean("skip_if_exists").default(true).notNull(), // Don't create if pending task with same name exists
+  enabled: boolean("enabled").default(true).notNull(),
+  ownerId: uuid("owner_id").references(() => teamMembers.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // ─────────────────────────────────────────────
