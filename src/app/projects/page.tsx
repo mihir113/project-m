@@ -267,17 +267,24 @@ export default function ProjectsPage() {
           <div>
             <label className="text-xs text-muted mb-1 block">Category (optional)</label>
             {!showNewCategory ? (
-              <select
-                className="input-field"
-                value={form.category || ""}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-              >
-                <option value="">No category</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-                <option value="__new__">+ Add new category</option>
-              </select>
+              <>
+                <select
+                  className="input-field"
+                  value={form.category || ""}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                >
+                  <option value="">No category</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                  <option value="__new__">+ Add new category</option>
+                </select>
+                {form.category && !categories.includes(form.category) && (
+                  <p className="text-xs mt-1" style={{ color: "#34d399" }}>
+                    ✓ New category "{form.category}" will be created
+                  </p>
+                )}
+              </>
             ) : (
               <div className="flex gap-2">
                 <input
@@ -291,7 +298,7 @@ export default function ProjectsPage() {
                   }}
                   autoFocus
                 />
-                <button className="btn-primary" onClick={handleNewCategoryConfirm}>Add</button>
+                <button className="btn-primary" onClick={handleNewCategoryConfirm} disabled={!newCategoryInput.trim()}>Add</button>
                 <button className="btn-ghost" onClick={() => { setShowNewCategory(false); setNewCategoryInput(""); }}>Cancel</button>
               </div>
             )}
