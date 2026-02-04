@@ -127,6 +127,8 @@ export default function TasksPage() {
 
   // Open add modal
   const openAdd = () => {
+    // Find Mihir's ID to set as default owner
+    const mihir = teamMembers.find(m => m.nick.toLowerCase() === "mihir");
     setAddForm({
       projectId: projects.length > 0 ? projects[0].id : "",
       name: "",
@@ -134,7 +136,7 @@ export default function TasksPage() {
       type: "one-time",
       recurrence: "quarterly",
       dueDate: new Date().toISOString().split("T")[0],
-      ownerId: "",
+      ownerId: mihir?.id || "",
       isPerMemberCheckIn: false,
       templateId: "",
     });
@@ -297,7 +299,8 @@ export default function TasksPage() {
                 {tasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-tertiary"
+                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg bg-tertiary cursor-pointer hover:bg-elevated transition-colors"
+                    onClick={() => openEdit(task)}
                   >
                     {/* Task Info */}
                     <div className="flex-1 min-w-0">
@@ -321,18 +324,28 @@ export default function TasksPage() {
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openEdit(task)}
-                        className="btn-ghost text-xs"
-                      >
-                        ✎ Edit
-                      </button>
+                    {/* Complete Button */}
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleComplete(task)}
                         disabled={completingTask === task.id}
-                        className="btn-primary text-xs whitespace-nowrap"
+                        className="text-xs whitespace-nowrap px-3 py-1.5 rounded-lg font-medium transition-colors"
+                        style={{
+                          backgroundColor: completingTask === task.id ? "#6b7280" : "#10b981",
+                          color: "white",
+                          cursor: completingTask === task.id ? "not-allowed" : "pointer",
+                          opacity: completingTask === task.id ? 0.6 : 1,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (completingTask !== task.id) {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#059669";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (completingTask !== task.id) {
+                            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#10b981";
+                          }
+                        }}
                       >
                         {completingTask === task.id ? "..." : "✓ Complete"}
                       </button>
@@ -452,7 +465,7 @@ export default function TasksPage() {
           </div>
 
           {/* Per-member check-in toggle */}
-          <div className="flex items-center justify-between p-3 rounded-lg bg-tertiary">
+          <div className="flex items-center justify-between p-3 rounded-lg border border-default" style={{ backgroundColor: "var(--bg-secondary)" }}>
             <div>
               <p className="text-sm text-primary font-medium">Per-member check-in</p>
               <p className="text-xs text-muted">One submission per team member each cycle</p>
@@ -465,9 +478,8 @@ export default function TasksPage() {
                   templateId: "",
                 })
               }
-              className={`w-10 h-5 rounded-full transition-colors relative ${
-                addForm.isPerMemberCheckIn ? "bg-[#4f6ff5]" : "bg-elevated"
-              }`}
+              className="w-10 h-5 rounded-full transition-colors relative"
+              style={{ backgroundColor: addForm.isPerMemberCheckIn ? "#4f6ff5" : "#d1d5db" }}
             >
               <div
                 className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"

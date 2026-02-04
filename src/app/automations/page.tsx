@@ -341,7 +341,7 @@ export default function AutomationsPage() {
       )}
 
       {/* Execution Instructions */}
-      <div className="card p-4 mt-6" style={{ backgroundColor: "#1e2130" }}>
+      <div className="card p-4 mt-6 bg-secondary">
         <p className="text-sm font-semibold text-primary mb-2">
           ⚙️ How to run automations
         </p>
@@ -349,8 +349,8 @@ export default function AutomationsPage() {
           Set up an external cron job (e.g., cron-job.org) to call this endpoint daily:
         </p>
         <code
-          className="block px-3 py-2 rounded text-xs"
-          style={{ backgroundColor: "#171923", color: "#34d399" }}
+          className="block px-3 py-2 rounded text-xs bg-tertiary"
+          style={{ color: "#34d399" }}
         >
           POST {window.location.origin}/api/automations/execute
         </code>

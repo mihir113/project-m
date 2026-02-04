@@ -8,6 +8,15 @@ export const metadata: Metadata = {
   description: "Project-based operations management",
   manifest: "/manifest.json",
   themeColor: "#4f6ff5",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icon-192x192.png", sizes: "192x192", type: "image/png" },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

@@ -98,6 +98,12 @@ export default function ProjectDetailPage() {
   const [historySelectedCycle, setHistorySelectedCycle] = useState<string | null>(null);
   const [historySubmissions, setHistorySubmissions] = useState<(Submission & { responses?: CheckinResponse[] })[]>([]);
 
+  // ── Project Edit/Delete ──
+  const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
+  const [projectForm, setProjectForm] = useState({ name: "", description: "", status: "active", color: "#4f6ff5" });
+  const [savingProject, setSavingProject] = useState(false);
+  const [deleteProjectConfirm, setDeleteProjectConfirm] = useState(false);
+
   // ── Fetch everything ──
   const fetchData = useCallback(async () => {
     try {
@@ -374,6 +380,57 @@ export default function ProjectDetailPage() {
     return true;
   });
 
+  // ── Project Edit/Delete Handlers ──
+  const openEditProject = () => {
+    if (!project) return;
+    setProjectForm({
+      name: project.name,
+      description: project.description || "",
+      status: project.status,
+      color: project.color,
+    });
+    setEditProjectModalOpen(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (!projectForm.name.trim()) return;
+    setSavingProject(true);
+    try {
+      await fetch("/api/projects", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: projectId,
+          name: projectForm.name,
+          description: projectForm.description || null,
+          status: projectForm.status,
+          color: projectForm.color,
+        }),
+      });
+      showToast("Project updated", "success");
+      setEditProjectModalOpen(false);
+      await fetchData();
+    } catch {
+      showToast("Failed to update project", "error");
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    try {
+      await fetch("/api/projects", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: projectId }),
+      });
+      showToast("Project deleted", "success");
+      router.push("/projects");
+    } catch {
+      showToast("Failed to delete project", "error");
+    }
+  };
+
   // ─────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────
@@ -411,7 +468,11 @@ export default function ProjectDetailPage() {
           <h1 className="text-2xl font-semibold text-primary">{project.name}</h1>
           <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"}`}>{project.status}</span>
         </div>
-        <button className="btn-primary" onClick={() => setAddModalOpen(true)}>+ Requirement</button>
+        <div className="flex gap-2">
+          <button className="btn-ghost text-sm" onClick={openEditProject}>✎ Edit Project</button>
+          <button className="btn-danger text-sm" onClick={() => setDeleteProjectConfirm(true)}>Delete Project</button>
+          <button className="btn-primary" onClick={() => setAddModalOpen(true)}>+ Requirement</button>
+        </div>
       </div>
       {project.description && <p className="text-secondary text-sm mb-4 ml-7">{project.description}</p>}
 
@@ -847,6 +908,79 @@ export default function ProjectDetailPage() {
               )}
             </>
           )}
+        </div>
+      </Modal>
+
+      {/* ── Edit Project Modal ── */}
+      <Modal open={editProjectModalOpen} onClose={() => setEditProjectModalOpen(false)} title="Edit Project">
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted mb-1 block">Project Name</label>
+            <input
+              className="input-field"
+              value={projectForm.name}
+              onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted mb-1 block">Description (optional)</label>
+            <textarea
+              className="input-field"
+              rows={2}
+              value={projectForm.description}
+              onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted mb-1 block">Status</label>
+            <select
+              className="input-field"
+              value={projectForm.status}
+              onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
+            >
+              <option value="active">Active</option>
+              <option value="on-hold">On Hold</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted mb-1 block">Color</label>
+            <div className="flex flex-wrap gap-2">
+              {["#4f6ff5", "#e879a0", "#a78bfa", "#60a5fa", "#34d399", "#fbbf24", "#fb923c", "#f472b6", "#38bdf8", "#4ade80", "#c084fc", "#fb7185"].map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setProjectForm({ ...projectForm, color: c })}
+                  className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110"
+                  style={{
+                    backgroundColor: c,
+                    borderColor: projectForm.color === c ? "#fff" : "transparent",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button className="btn-ghost" onClick={() => setEditProjectModalOpen(false)}>Cancel</button>
+            <button className="btn-primary" onClick={handleSaveProject} disabled={savingProject}>
+              {savingProject ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Delete Project Confirmation ── */}
+      <Modal open={deleteProjectConfirm} onClose={() => setDeleteProjectConfirm(false)} title="Delete Project">
+        <div className="space-y-4">
+          <p className="text-secondary text-sm">
+            Are you sure you want to delete <strong className="text-primary">{project.name}</strong>? This will also delete all {requirements.length} requirement{requirements.length !== 1 ? "s" : ""} in this project.
+          </p>
+          <p className="text-xs text-muted">This action cannot be undone.</p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button className="btn-ghost" onClick={() => setDeleteProjectConfirm(false)}>Cancel</button>
+            <button className="btn-danger" onClick={handleDeleteProject}>
+              Delete Project
+            </button>
+          </div>
         </div>
       </Modal>
     </div>

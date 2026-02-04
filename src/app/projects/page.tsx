@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
@@ -25,6 +26,8 @@ const COLOR_OPTIONS = [
 const STATUS_OPTIONS = ["active", "on-hold", "completed"];
 
 export default function ProjectsPage() {
+  const searchParams = useSearchParams();
+  const statusFromUrl = searchParams.get("status");
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
@@ -164,13 +167,20 @@ export default function ProjectsPage() {
   };
 
   // ───── RENDER ─────
+  // Filter projects based on URL parameter
+  const filteredProjects = statusFromUrl
+    ? projects.filter((p) => p.status === statusFromUrl)
+    : projects;
+
   return (
     <div className="animate-fadeIn">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-primary">Projects</h1>
-          <p className="text-secondary text-sm mt-1">{projects.length} project{projects.length !== 1 ? "s" : ""}</p>
+          <h1 className="text-2xl font-semibold text-primary">
+            Projects{statusFromUrl ? ` - ${statusFromUrl.charAt(0).toUpperCase() + statusFromUrl.slice(1)}` : ""}
+          </h1>
+          <p className="text-secondary text-sm mt-1">{filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""}</p>
         </div>
         <button className="btn-primary" onClick={openCreate}>+ New Project</button>
       </div>
@@ -178,26 +188,31 @@ export default function ProjectsPage() {
       {/* Project Grid */}
       {loading ? (
         <p className="text-muted text-sm py-12 text-center">Loading...</p>
-      ) : projects.length === 0 ? (
+      ) : filteredProjects.length === 0 ? (
         <div className="card p-12 text-center">
-          <p className="text-muted text-sm mb-3">No projects yet.</p>
+          <p className="text-muted text-sm mb-3">No {statusFromUrl || ""} projects yet.</p>
           <button className="btn-primary" onClick={openCreate}>Create your first project</button>
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((p) => {
+          {filteredProjects.map((p) => {
             const total = Number(p.totalRequirements || 0);
             const done = Number(p.completedRequirements || 0);
             const pct = total > 0 ? Math.round((done / total) * 100) : 0;
 
             return (
-              <div key={p.id} className="card p-5 flex flex-col gap-3 hover:shadow-lg transition-shadow" style={{ borderTop: `3px solid ${p.color}` }}>
+              <Link
+                key={p.id}
+                href={`/projects/${p.id}`}
+                className="card p-5 flex flex-col gap-3 hover:shadow-lg transition-shadow cursor-pointer"
+                style={{ borderTop: `3px solid ${p.color}`, textDecoration: "none" }}
+              >
                 {/* Top: name + status */}
                 <div className="flex items-start justify-between">
                   <div>
                     <h3 className="text-primary font-semibold text-base">{p.name}</h3>
                     {p.category && (
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: "#1e2130", color: "#9a9eb5" }}>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs bg-tertiary text-secondary">
                         {p.category}
                       </span>
                     )}
@@ -218,22 +233,11 @@ export default function ProjectsPage() {
                     <span>{done} / {total} requirements</span>
                     <span>{pct}%</span>
                   </div>
-                  <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: "#1e2130" }}>
+                  <div className="w-full h-1.5 rounded-full bg-tertiary">
                     <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: p.color }} />
                   </div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex items-center justify-between pt-2 border-t border-default mt-auto">
-                  <Link href={`/projects/${p.id}`} className="text-xs font-medium" style={{ color: p.color, textDecoration: "none" }}>
-                    View Requirements →
-                  </Link>
-                  <div className="flex gap-2">
-                    <button className="btn-ghost text-xs" onClick={() => openEdit(p)}>Edit</button>
-                    <button className="btn-danger text-xs" onClick={() => setDeleteConfirm(p)}>Delete</button>
-                  </div>
-                </div>
-              </div>
+              </Link>
             );
           })}
         </div>
