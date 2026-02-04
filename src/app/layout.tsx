@@ -6,6 +6,18 @@ import ClientLayout from "@/components/ClientLayout";
 export const metadata: Metadata = {
   title: "Project M",
   description: "Project-based operations management",
+  manifest: "/manifest.json",
+  themeColor: "#4f6ff5",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Project M",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({
