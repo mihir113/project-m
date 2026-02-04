@@ -1,4 +1,4 @@
-"use client";  
+"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -395,6 +395,15 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="animate-fadeIn">
+      {/* Back Button */}
+      <button
+        onClick={() => router.back()}
+        className="btn-ghost text-sm mb-4 flex items-center gap-1"
+        style={{ padding: "0.25rem 0.5rem" }}
+      >
+        ← Back
+      </button>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
@@ -843,5 +852,3 @@ export default function ProjectDetailPage() {
     </div>
   );
 }
-
-// trigger deploy
