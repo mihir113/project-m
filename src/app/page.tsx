@@ -315,7 +315,6 @@ export default function DashboardPage() {
           />
         )}
       </div>
-    </div>
 
       {/* ── Create / Edit Modal ── */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingProject ? "Edit Project" : "New Project"}>
