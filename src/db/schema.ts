@@ -57,6 +57,7 @@ export const projects = pgTable("projects", {
   description: text("description"),
   status: projectStatusEnum("status").default("active").notNull(),
   color: text("color").default("#4f6ff5").notNull(),
+  category: text("category"), // Project category for board view organization
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

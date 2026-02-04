@@ -11,6 +11,7 @@ interface Project {
   description: string | null;
   status: string;
   color: string;
+  category: string | null;
   totalRequirements?: number;
   completedRequirements?: number;
 }
@@ -30,9 +31,20 @@ export default function ProjectsPage() {
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null); // null = create mode
-  const [form, setForm] = useState({ name: "", description: "", status: "active", color: "#4f6ff5" });
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [form, setForm] = useState({ 
+    name: "", 
+    description: "", 
+    status: "active", 
+    color: "#4f6ff5",
+    category: "" 
+  });
   const [saving, setSaving] = useState(false);
+
+  // Category management
+  const [categories, setCategories] = useState<string[]>([]);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<Project | null>(null);
@@ -41,7 +53,14 @@ export default function ProjectsPage() {
     try {
       const res = await fetch("/api/projects");
       const json = await res.json();
-      setProjects(json.data || []);
+      const projectsData = json.data || [];
+      setProjects(projectsData);
+      
+      // Extract unique categories
+      const uniqueCategories = Array.from(
+        new Set(projectsData.map((p: Project) => p.category).filter(Boolean))
+      ) as string[];
+      setCategories(uniqueCategories.sort());
     } catch {
       showToast("Failed to load projects", "error");
     } finally {
@@ -54,7 +73,9 @@ export default function ProjectsPage() {
   // ── Open modal for Create or Edit ──
   const openCreate = () => {
     setEditingProject(null);
-    setForm({ name: "", description: "", status: "active", color: "#4f6ff5" });
+    setForm({ name: "", description: "", status: "active", color: "#4f6ff5", category: "" });
+    setShowNewCategory(false);
+    setNewCategoryInput("");
     setModalOpen(true);
   };
 
@@ -65,8 +86,30 @@ export default function ProjectsPage() {
       description: project.description || "",
       status: project.status,
       color: project.color,
+      category: project.category || "",
     });
+    setShowNewCategory(false);
+    setNewCategoryInput("");
     setModalOpen(true);
+  };
+
+  // ── Handle category selection ──
+  const handleCategoryChange = (value: string) => {
+    if (value === "__new__") {
+      setShowNewCategory(true);
+      setForm({ ...form, category: "" });
+    } else {
+      setShowNewCategory(false);
+      setForm({ ...form, category: value });
+    }
+  };
+
+  const handleNewCategoryConfirm = () => {
+    if (newCategoryInput.trim()) {
+      setForm({ ...form, category: newCategoryInput.trim() });
+      setShowNewCategory(false);
+      setNewCategoryInput("");
+    }
   };
 
   // ── Save (create or update) ──
@@ -74,12 +117,17 @@ export default function ProjectsPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
+      const payload = {
+        ...form,
+        category: form.category || null,
+      };
+
       if (editingProject) {
         // Update
         const res = await fetch("/api/projects", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingProject.id, ...form }),
+          body: JSON.stringify({ id: editingProject.id, ...payload }),
         });
         const json = await res.json();
         if (!res.ok) { showToast(json.error || "Update failed", "error"); return; }
@@ -89,7 +137,7 @@ export default function ProjectsPage() {
         const res = await fetch("/api/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
         const json = await res.json();
         if (!res.ok) { showToast(json.error || "Create failed", "error"); return; }
@@ -115,7 +163,7 @@ export default function ProjectsPage() {
     }
   };
 
-  // ─── RENDER ───
+  // ───── RENDER ─────
   return (
     <div className="animate-fadeIn">
       {/* Header */}
@@ -146,7 +194,14 @@ export default function ProjectsPage() {
               <div key={p.id} className="card p-5 flex flex-col gap-3 hover:shadow-lg transition-shadow" style={{ borderTop: `3px solid ${p.color}` }}>
                 {/* Top: name + status */}
                 <div className="flex items-start justify-between">
-                  <h3 className="text-primary font-semibold text-base">{p.name}</h3>
+                  <div>
+                    <h3 className="text-primary font-semibold text-base">{p.name}</h3>
+                    {p.category && (
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: "#1e2130", color: "#9a9eb5" }}>
+                        {p.category}
+                      </span>
+                    )}
+                  </div>
                   <span className={`badge-${p.status === "active" ? "completed" : p.status === "on-hold" ? "pending" : "completed"}`}>
                     {p.status}
                   </span>
@@ -206,6 +261,40 @@ export default function ProjectsPage() {
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
             />
+          </div>
+
+          {/* Category picker */}
+          <div>
+            <label className="text-xs text-muted mb-1 block">Category (optional)</label>
+            {!showNewCategory ? (
+              <select
+                className="input-field"
+                value={form.category || ""}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+              >
+                <option value="">No category</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+                <option value="__new__">+ Add new category</option>
+              </select>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  className="input-field flex-1"
+                  placeholder="Enter category name"
+                  value={newCategoryInput}
+                  onChange={(e) => setNewCategoryInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleNewCategoryConfirm();
+                    if (e.key === "Escape") { setShowNewCategory(false); setNewCategoryInput(""); }
+                  }}
+                  autoFocus
+                />
+                <button className="btn-primary" onClick={handleNewCategoryConfirm}>Add</button>
+                <button className="btn-ghost" onClick={() => { setShowNewCategory(false); setNewCategoryInput(""); }}>Cancel</button>
+              </div>
+            )}
           </div>
 
           <div>

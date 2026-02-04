@@ -1,43 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/client";
 import { projects, requirements } from "@/db/schema";
-import { eq, sql, getTableColumns } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
-// GET /api/projects — list all projects with requirement counts
+// GET /api/projects — return all projects with requirement counts
 export async function GET() {
   try {
     const rows = await db
-  .select({
-    ...getTableColumns(projects), // Fixes the spread error
-    totalRequirements: sql<number>`COUNT(${requirements.id})`,
-    completedRequirements: sql<number>`COUNT(CASE WHEN ${requirements.status} = 'completed' THEN 1 END)`,
-  })
+      .select({
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        status: projects.status,
+        color: projects.color,
+        category: projects.category,
+        createdAt: projects.createdAt,
+        totalRequirements: sql<number>`(SELECT COUNT(*) FROM ${requirements} WHERE ${requirements.projectId} = ${projects.id})`,
+        completedRequirements: sql<number>`(SELECT COUNT(*) FROM ${requirements} WHERE ${requirements.projectId} = ${projects.id} AND ${requirements.status} = 'completed')`,
+      })
       .from(projects)
-      .leftJoin(requirements, eq(requirements.projectId, projects.id))
-      .groupBy(projects.id)
       .orderBy(projects.createdAt);
 
     return NextResponse.json({ data: rows });
   } catch (err) {
+    console.error("GET /api/projects error:", err);
     return NextResponse.json({ error: "Failed to fetch projects" }, { status: 500 });
   }
 }
 
-// POST /api/projects — create a project
-// Body: { name, description?, status?, color? }
+// POST /api/projects — create a new project
+// Body: { name, description?, status?, color?, category? }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, description, status, color } = body;
+    const { name, description, status, color, category } = body;
 
-    if (!name) {
+    if (!name || !name.trim()) {
       return NextResponse.json({ error: "name is required" }, { status: 400 });
-    }
-
-    // Check unique name
-    const existing = await db.select().from(projects).where(eq(projects.name, name));
-    if (existing.length > 0) {
-      return NextResponse.json({ error: `A project named "${name}" already exists` }, { status: 409 });
     }
 
     const [created] = await db
@@ -47,35 +46,30 @@ export async function POST(req: NextRequest) {
         description: description?.trim() || null,
         status: status || "active",
         color: color || "#4f6ff5",
+        category: category?.trim() || null,
       })
       .returning();
 
     return NextResponse.json({ data: created }, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
+    console.error("POST /api/projects error:", err);
+    // Handle unique constraint violation for project name
+    if (err?.code === "23505") {
+      return NextResponse.json({ error: "Project name already exists" }, { status: 400 });
+    }
     return NextResponse.json({ error: "Failed to create project" }, { status: 500 });
   }
 }
 
 // PUT /api/projects — update a project
-// Body: { id, name?, description?, status?, color? }
+// Body: { id, name?, description?, status?, color?, category? }
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, description, status, color } = body;
+    const { id, name, description, status, color, category } = body;
 
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
-    }
-
-    // If name is changing, check uniqueness
-    if (name) {
-      const existing = await db
-        .select()
-        .from(projects)
-        .where(eq(projects.name, name));
-      if (existing.length > 0 && existing[0].id !== id) {
-        return NextResponse.json({ error: `A project named "${name}" already exists` }, { status: 409 });
-      }
     }
 
     const updates: Record<string, any> = {};
@@ -83,6 +77,11 @@ export async function PUT(req: NextRequest) {
     if (description !== undefined) updates.description = description?.trim() || null;
     if (status !== undefined) updates.status = status;
     if (color !== undefined) updates.color = color;
+    if (category !== undefined) updates.category = category?.trim() || null;
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    }
 
     const [updated] = await db
       .update(projects)
@@ -90,8 +89,16 @@ export async function PUT(req: NextRequest) {
       .where(eq(projects.id, id))
       .returning();
 
+    if (!updated) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
     return NextResponse.json({ data: updated });
-  } catch (err) {
+  } catch (err: any) {
+    console.error("PUT /api/projects error:", err);
+    if (err?.code === "23505") {
+      return NextResponse.json({ error: "Project name already exists" }, { status: 400 });
+    }
     return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
   }
 }
@@ -105,8 +112,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     await db.delete(projects).where(eq(projects.id, id));
+
     return NextResponse.json({ data: { deleted: true } });
   } catch (err) {
+    console.error("DELETE /api/projects error:", err);
     return NextResponse.json({ error: "Failed to delete project" }, { status: 500 });
   }
 }
