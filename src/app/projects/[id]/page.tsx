@@ -419,10 +419,8 @@ export default function ProjectDetailPage() {
 
   const handleDeleteProject = async () => {
     try {
-      await fetch("/api/projects", {
+      await fetch(`/api/projects?id=${projectId}`, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: projectId }),
       });
       showToast("Project deleted", "success");
       router.push("/projects");
@@ -452,29 +450,29 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="animate-fadeIn">
-      {/* Back Button */}
+      {/* Back Button - with mobile margin */}
       <button
         onClick={() => router.back()}
-        className="btn-ghost text-sm mb-4 flex items-center gap-1"
-        style={{ padding: "0.25rem 0.5rem" }}
+        className="btn-ghost text-sm mb-4 flex items-center gap-1 ml-0 md:ml-0"
+        style={{ padding: "0.25rem 0.5rem", marginLeft: "0" }}
       >
         ← Back
       </button>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-full" style={{ backgroundColor: project.color }} />
-          <h1 className="text-2xl font-semibold text-primary">{project.name}</h1>
+      {/* Header - responsive layout */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+        <div className="flex items-start sm:items-center gap-3 flex-wrap min-w-0">
+          <div className="w-4 h-4 rounded-full flex-shrink-0 mt-1 sm:mt-0" style={{ backgroundColor: project.color }} />
+          <h1 className="text-xl sm:text-2xl font-semibold text-primary break-words">{project.name}</h1>
           <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"}`}>{project.status}</span>
         </div>
-        <div className="flex gap-2">
-          <button className="btn-ghost text-sm" onClick={openEditProject}>✎ Edit Project</button>
-          <button className="btn-danger text-sm" onClick={() => setDeleteProjectConfirm(true)}>Delete Project</button>
-          <button className="btn-primary" onClick={() => setAddModalOpen(true)}>+ Requirement</button>
+        <div className="flex gap-2 flex-wrap sm:flex-nowrap">
+          <button className="btn-ghost text-xs sm:text-sm whitespace-nowrap" onClick={openEditProject}>✎ Edit</button>
+          <button className="btn-danger text-xs sm:text-sm whitespace-nowrap" onClick={() => setDeleteProjectConfirm(true)}>Delete</button>
+          <button className="btn-primary text-xs sm:text-sm whitespace-nowrap" onClick={() => setAddModalOpen(true)}>+ Requirement</button>
         </div>
       </div>
-      {project.description && <p className="text-secondary text-sm mb-4 ml-7">{project.description}</p>}
+      {project.description && <p className="text-secondary text-sm mb-4">{project.description}</p>}
 
       {/* Progress bar */}
       <div className="card p-4 mb-6">

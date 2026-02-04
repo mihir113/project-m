@@ -235,7 +235,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stat Cards — each is a drill-down link */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-8">
         <StatCard label="Active Projects" value={stats.activeProjects} color="#4f6ff5" href="/projects?status=active" />
         <StatCard label="Total Tasks" value={stats.totalRequirements} color="#9a9eb5" href="/tasks" />
         <StatCard label="Completed" value={stats.completedRequirements} color="#34d399" href="/projects?status=completed" />
