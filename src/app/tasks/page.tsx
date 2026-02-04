@@ -233,6 +233,24 @@ export default function TasksPage() {
     }
   };
 
+  // Delete task from edit modal
+  const handleDeleteTask = async () => {
+    if (!editingTask) return;
+    if (!confirm(`Are you sure you want to delete "${editingTask.name}"?`)) return;
+    try {
+      await fetch("/api/requirements", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingTask.id }),
+      });
+      showToast("Task deleted", "success");
+      setEditModalOpen(false);
+      await fetchTasks();
+    } catch {
+      showToast("Failed to delete task", "error");
+    }
+  };
+
   // Group tasks by project
   const groupedTasks = tasks.reduce<GroupedTasks>((acc, task) => {
     if (!acc[task.projectId]) {
@@ -583,17 +601,22 @@ export default function TasksPage() {
             </select>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button className="btn-ghost" onClick={() => setEditModalOpen(false)}>
-              Cancel
+          <div className="flex justify-between gap-2 pt-2">
+            <button className="btn-danger" onClick={handleDeleteTask}>
+              Delete Task
             </button>
-            <button
-              className="btn-primary"
-              onClick={handleSaveEdit}
-              disabled={savingEdit || !editForm.name.trim() || !editForm.dueDate}
-            >
-              {savingEdit ? "Saving..." : "Save Changes"}
-            </button>
+            <div className="flex gap-2">
+              <button className="btn-ghost" onClick={() => setEditModalOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSaveEdit}
+                disabled={savingEdit || !editForm.name.trim() || !editForm.dueDate}
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>

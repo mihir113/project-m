@@ -509,32 +509,40 @@ export default function ProjectDetailPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map((req) => (
-            <div key={req.id} className="card p-4 flex items-center gap-4 hover:shadow-md transition-shadow">
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: req.status === "completed" ? "#34d399" : req.status === "overdue" ? "#f87171" : "#fbbf24" }} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-primary text-sm font-medium">{req.name}</p>
-                  <span className={`badge-${req.status}`}>{req.status}</span>
-                  {req.isPerMemberCheckIn && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(79,111,245,0.12)", color: "#4f6ff5" }}>Per-member</span>}
-                  {req.templateId && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(52,211,153,0.12)", color: "#34d399" }}>Has template</span>}
-                  {req.type === "recurring" && req.recurrence && <span className="text-xs text-muted">↻ {req.recurrence}</span>}
+            <div key={req.id} className="card p-4">
+              {/* Mobile-friendly flex layout */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                {/* Status indicator + Content */}
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: req.status === "completed" ? "#34d399" : req.status === "overdue" ? "#f87171" : "#fbbf24" }} />
+                  <div className="flex-1 min-w-0">
+                    {/* Title and badges */}
+                    <div className="flex items-start gap-2 flex-wrap mb-1">
+                      <p className="text-primary text-sm font-medium">{req.name}</p>
+                      <span className={`badge-${req.status}`}>{req.status}</span>
+                      {req.isPerMemberCheckIn && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(79,111,245,0.12)", color: "#4f6ff5" }}>Per-member</span>}
+                      {req.templateId && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(52,211,153,0.12)", color: "#34d399" }}>Has template</span>}
+                      {req.type === "recurring" && req.recurrence && <span className="text-xs text-muted">↻ {req.recurrence}</span>}
+                    </div>
+                    {/* Due date and owner */}
+                    <div className="flex items-center gap-3 text-xs text-muted flex-wrap">
+                      <span>Due {formatDate(req.dueDate)}</span>
+                      {req.ownerNick && <span>• {req.ownerNick}</span>}
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-muted text-xs">Due {formatDate(req.dueDate)}</span>
+
+                {/* Action buttons - stack on mobile */}
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
+                  {req.status !== "completed" && (
+                    req.isPerMemberCheckIn
+                      ? <button className="btn-primary text-xs whitespace-nowrap" onClick={() => openCheckin(req)}>Check-ins</button>
+                      : <button className="btn-primary text-xs whitespace-nowrap" onClick={() => { setCompleteModalReq(req); setCompleteNotes(""); }}>✓ Complete</button>
+                  )}
+                  {req.isPerMemberCheckIn && <button className="btn-ghost text-xs" onClick={() => openHistory(req)}>History</button>}
+                  <button className="btn-ghost text-xs" onClick={() => openEdit(req)} title="Edit">✎ Edit</button>
+                  <button className="btn-danger text-xs" onClick={() => handleDeleteRequirement(req)} title="Delete">Delete</button>
                 </div>
-              </div>
-              <div className="flex-shrink-0">
-                {req.ownerNick ? <OwnerChip nick={req.ownerNick} /> : <UnassignedChip />}
-              </div>
-              <div className="flex gap-2 flex-shrink-0">
-                {req.status !== "completed" && (
-                  req.isPerMemberCheckIn
-                    ? <button className="btn-primary text-xs" onClick={() => openCheckin(req)}>Check-ins</button>
-                    : <button className="btn-primary text-xs" onClick={() => { setCompleteModalReq(req); setCompleteNotes(""); }}>✓ Complete</button>
-                )}
-                {req.isPerMemberCheckIn && <button className="btn-ghost text-xs" onClick={() => openHistory(req)}>History</button>}
-                <button className="btn-ghost text-xs" onClick={() => openEdit(req)} title="Edit">✎</button>
-                <button className="btn-danger text-xs" onClick={() => handleDeleteRequirement(req)} title="Delete">✕</button>
               </div>
             </div>
           ))}
