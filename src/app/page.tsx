@@ -237,7 +237,7 @@ export default function DashboardPage() {
       {/* Stat Cards — each is a drill-down link */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard label="Active Projects" value={stats.activeProjects} color="#4f6ff5" href="/projects" />
-        <StatCard label="Total Requirements" value={stats.totalRequirements} color="#9a9eb5" href="/projects" />
+        <StatCard label="Total Tasks" value={stats.totalRequirements} color="#9a9eb5" href="/tasks" />
         <StatCard label="Completed" value={stats.completedRequirements} color="#34d399" href="/projects" />
         <StatCard label="Completion %" value={`${completionPct}%`} color="#fbbf24" href="/projects" />
       </div>
@@ -389,35 +389,45 @@ function ListView({ projects }: { projects: ProjectWithCounts[] }) {
           <Link
             key={project.id}
             href={`/projects/${project.id}`}
-            className="flex items-center gap-4 p-3 rounded-lg transition-colors"
+            className="block p-3 rounded-lg transition-colors"
             style={{ textDecoration: "none" }}
             onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "#1e2130")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.backgroundColor = "transparent")}
           >
-            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: project.color }} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <p className="text-primary text-sm font-medium truncate">{project.name}</p>
-                {project.category && (
-                  <span className="px-2 py-0.5 rounded-full text-xs" style={{ backgroundColor: "#1e2130", color: "#9a9eb5" }}>
-                    {project.category}
+            {/* Mobile-friendly layout */}
+            <div className="flex items-start gap-3">
+              <div className="w-3 h-3 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: project.color }} />
+              <div className="flex-1 min-w-0">
+                {/* Header row with name and status */}
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-primary text-sm font-medium break-words">{project.name}</p>
+                    {project.category && (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs mt-1" style={{ backgroundColor: "#1e2130", color: "#9a9eb5" }}>
+                        {project.category}
+                      </span>
+                    )}
+                  </div>
+                  <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"} flex-shrink-0 text-xs`}>
+                    {project.status}
                   </span>
+                </div>
+                {/* Description */}
+                {project.description && (
+                  <p className="text-muted text-xs mb-2 line-clamp-2">{project.description}</p>
                 )}
+                {/* Progress bar */}
+                <div>
+                  <div className="flex justify-between text-xs text-muted mb-1">
+                    <span>{done}/{total} tasks</span>
+                    <span>{pct}%</span>
+                  </div>
+                  <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: "#1e2130" }}>
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
+                  </div>
+                </div>
               </div>
-              {project.description && <p className="text-muted text-xs truncate">{project.description}</p>}
             </div>
-            <div className="w-32 flex-shrink-0">
-              <div className="flex justify-between text-xs text-muted mb-1">
-                <span>{done}/{total}</span>
-                <span>{pct}%</span>
-              </div>
-              <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: "#1e2130" }}>
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
-              </div>
-            </div>
-            <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"} flex-shrink-0`}>
-              {project.status}
-            </span>
           </Link>
         );
       })}

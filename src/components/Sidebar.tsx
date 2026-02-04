@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "@/components/ThemeProvider";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: "⊞" },
@@ -20,6 +21,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(true);   // desktop collapse — default collapsed
   const [mobileOpen, setMobileOpen] = useState(false); // mobile drawer
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   // On mount: expand sidebar only if screen is wide enough
   useEffect(() => {
@@ -104,13 +106,10 @@ export function Sidebar() {
   const MobileToggle = () => (
     <button
       onClick={() => setMobileOpen(true)}
-      className="md:hidden fixed top-4 left-4 z-40 flex items-center justify-center rounded-lg"
+      className="md:hidden fixed top-4 left-4 z-40 flex items-center justify-center rounded-lg bg-secondary border border-default text-primary"
       style={{
         width: "40px",
         height: "40px",
-        backgroundColor: "#171923",
-        border: "1px solid #252838",
-        color: "#f0f1f3",
       }}
       aria-label="Open menu"
     >
@@ -137,10 +136,9 @@ export function Sidebar() {
 
       {/* Drawer panel */}
       <aside
-        className="md:hidden fixed top-0 left-0 z-50 flex flex-col h-full transition-transform duration-300"
+        className="md:hidden fixed top-0 left-0 z-50 flex flex-col h-full bg-secondary transition-transform duration-300"
         style={{
           width: "240px",
-          backgroundColor: "#171923",
           transform: mobileOpen ? "translateX(0)" : "translateX(-100%)",
         }}
       >
@@ -157,10 +155,8 @@ export function Sidebar() {
           </Link>
           <button
             onClick={() => setMobileOpen(false)}
-            className="flex items-center justify-center rounded-lg transition-colors"
-            style={{ color: "#9a9eb5", width: "28px", height: "28px" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#f0f1f3")}
-            onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#9a9eb5")}
+            className="flex items-center justify-center rounded-lg text-secondary hover:text-primary transition-colors"
+            style={{ width: "28px", height: "28px" }}
             aria-label="Close menu"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
@@ -173,6 +169,17 @@ export function Sidebar() {
         <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
           {renderLinks(true)}
         </nav>
+
+        {/* Theme toggle (mobile) */}
+        <div className="p-3 border-t border-default">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center justify-center gap-2 text-muted hover:text-primary transition-colors py-2"
+          >
+            <span className="text-lg">{theme === "light" ? "🌙" : "☀️"}</span>
+            <span className="text-sm font-medium">{theme === "light" ? "Dark Mode" : "Light Mode"}</span>
+          </button>
+        </div>
       </aside>
     </>
   );
@@ -180,10 +187,9 @@ export function Sidebar() {
   // ── DESKTOP: static sidebar ────────────────────────
   const DesktopSidebar = () => (
     <aside
-      className="hidden md:flex flex-col border-r border-default transition-all duration-300 flex-shrink-0"
+      className="hidden md:flex flex-col border-r border-default bg-secondary transition-all duration-300 flex-shrink-0"
       style={{
         width: collapsed ? "64px" : "220px",
-        backgroundColor: "#171923",
         minHeight: "100vh",
       }}
     >
@@ -193,15 +199,29 @@ export function Sidebar() {
         {renderLinks(false)}
       </nav>
 
-      {/* Collapse toggle */}
-      <div className="p-3 border-t border-default">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center text-muted hover:text-primary transition-colors py-1"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? "→" : "←"}
-        </button>
+      {/* Theme & Collapse toggles */}
+      <div className="border-t border-default">
+        {/* Theme toggle */}
+        <div className="p-3 border-b border-default">
+          <button
+            onClick={toggleTheme}
+            className="w-full flex items-center gap-2 text-muted hover:text-primary transition-colors py-1"
+            title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          >
+            <span className="text-lg">{theme === "light" ? "🌙" : "☀️"}</span>
+            {!collapsed && <span className="text-sm font-medium">{theme === "light" ? "Dark" : "Light"}</span>}
+          </button>
+        </div>
+        {/* Collapse toggle */}
+        <div className="p-3">
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="w-full flex items-center justify-center text-muted hover:text-primary transition-colors py-1"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {collapsed ? "→" : "←"}
+          </button>
+        </div>
       </div>
     </aside>
   );
