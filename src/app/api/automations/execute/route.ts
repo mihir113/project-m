@@ -8,10 +8,10 @@ import { eq, and } from "drizzle-orm";
 export async function POST(req: NextRequest) {
   try {
     // Optional: Add authentication here (e.g., check for a secret token in headers)
-    // const token = req.headers.get("x-cron-secret");
-    // if (token !== process.env.CRON_SECRET) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+     const token = req.headers.get("x-cron-secret");
+     if (token !== process.env.CRON_SECRET) {
+       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+     }
 
     // Get all enabled automations
     const automations = await db
