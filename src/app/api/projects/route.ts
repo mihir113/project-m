@@ -15,10 +15,12 @@ export async function GET() {
         color: projects.color,
         category: projects.category,
         createdAt: projects.createdAt,
-        totalRequirements: sql<number>`(SELECT COUNT(*) FROM requirements WHERE requirements.project_id = ${projects.id})`,
-        completedRequirements: sql<number>`(SELECT COUNT(*) FROM requirements WHERE requirements.project_id = ${projects.id} AND requirements.status = 'completed')`,
+        totalRequirements: sql<number>`CAST(COUNT(${requirements.id}) AS INTEGER)`,
+        completedRequirements: sql<number>`CAST(COUNT(CASE WHEN ${requirements.status} = 'completed' THEN 1 END) AS INTEGER)`,
       })
       .from(projects)
+      .leftJoin(requirements, eq(projects.id, requirements.projectId))
+      .groupBy(projects.id)
       .orderBy(projects.createdAt);
 
     return NextResponse.json({ data: rows });
