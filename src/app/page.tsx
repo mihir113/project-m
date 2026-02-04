@@ -172,7 +172,7 @@ export default function DashboardPage() {
   });
 
   // Group projects by category for board view
-  const categories = Array.from(
+  const boardCategories = Array.from(
     new Set(filteredProjects.map((p) => p.category).filter(Boolean))
   ) as string[];
   const uncategorized = filteredProjects.filter((p) => !p.category);
@@ -305,7 +305,7 @@ export default function DashboardPage() {
           <ListView projects={filteredProjects} />
         ) : (
           <BoardView
-            categories={categories}
+            categories={boardCategories}
             uncategorized={uncategorized}
             projects={filteredProjects}
             onDragStart={handleDragStart}
