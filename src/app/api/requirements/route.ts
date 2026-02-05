@@ -1,22 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { requirements, teamMembers, metricTemplates } from "@/db/schema";
+import { requirements, teamMembers, metricTemplates, projects } from "@/db/schema";
 // 1. Add getTableColumns to your imports
 import { eq, and, sql, getTableColumns } from "drizzle-orm";
 
 // GET /api/requirements?projectId=<uuid>&status=<status>&ownerId=<uuid>
-// All filters are optional except projectId
+// projectId is now optional - if not provided, returns all requirements across all projects
 export async function GET(req: NextRequest) {
   try {
     const projectId = req.nextUrl.searchParams.get("projectId");
     const status = req.nextUrl.searchParams.get("status");
     const ownerId = req.nextUrl.searchParams.get("ownerId");
 
-    if (!projectId) {
-      return NextResponse.json({ error: "projectId is required" }, { status: 400 });
-    }
-
-    const conditions: any[] = [eq(requirements.projectId, projectId)];
+    const conditions: any[] = [];
+    if (projectId) conditions.push(eq(requirements.projectId, projectId));
     if (status && status !== "all") conditions.push(eq(requirements.status, status as any));
     if (ownerId) conditions.push(eq(requirements.ownerId, ownerId));
 
@@ -25,11 +22,14 @@ export async function GET(req: NextRequest) {
     ...getTableColumns(requirements), // Fixes the spread error
     ownerNick: teamMembers.nick,
     ownerRole: teamMembers.role,
+    projectName: projects.name,
+    projectColor: projects.color,
     metricCount: sql<number>`(SELECT COUNT(*) FROM metric_templates WHERE metric_templates.requirement_id = ${requirements.id})`,
   })
       .from(requirements)
       .leftJoin(teamMembers, eq(teamMembers.id, requirements.ownerId))
-      .where(and(...conditions))
+      .leftJoin(projects, eq(projects.id, requirements.projectId))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
       .orderBy(requirements.createdAt);
 
     return NextResponse.json({ data: rows });

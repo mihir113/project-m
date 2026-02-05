@@ -82,37 +82,29 @@ export default function TasksPage() {
 
   const fetchTasks = async () => {
     try {
-      // Fetch all projects, team members, and templates
-      const [projectsRes, teamRes, tmplRes] = await Promise.all([
+      // Fetch all projects, team members, templates, and pending tasks in parallel
+      const [projectsRes, teamRes, tmplRes, tasksRes] = await Promise.all([
         fetch("/api/projects"),
         fetch("/api/team"),
         fetch("/api/check-in-templates"),
+        fetch("/api/requirements?status=pending"), // Single call for all pending tasks
       ]);
-      const [projectsJson, teamJson, tmplJson] = await Promise.all([
+      const [projectsJson, teamJson, tmplJson, tasksJson] = await Promise.all([
         projectsRes.json(),
         teamRes.json(),
         tmplRes.json(),
+        tasksRes.json(),
       ]);
-      const projectsData = projectsJson.data || [];
-      setProjects(projectsData);
+
+      setProjects(projectsJson.data || []);
       setTeamMembers(teamJson.data || []);
       setTemplates(tmplJson.data || []);
 
-      // Fetch pending tasks for all projects
-      const allTasks: Task[] = [];
-      for (const project of projectsData) {
-        const tasksRes = await fetch(`/api/requirements?projectId=${project.id}&status=pending`);
-        const tasksJson = await tasksRes.json();
-        const projectTasks = (tasksJson.data || []).map((t: any) => ({
-          ...t,
-          projectName: project.name,
-          projectColor: project.color,
-        }));
-        allTasks.push(...projectTasks);
-      }
+      // Tasks already include projectName and projectColor from the API
+      const allTasks = tasksJson.data || [];
 
       // Sort by due date (earliest first)
-      allTasks.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      allTasks.sort((a: Task, b: Task) => a.dueDate.localeCompare(b.dueDate));
       setTasks(allTasks);
     } catch {
       showToast("Failed to load tasks", "error");
