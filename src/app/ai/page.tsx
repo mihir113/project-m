@@ -96,7 +96,7 @@ export default function AIPage() {
     "Create a template called 'Weekly Sync' with description 'Weekly team sync template'",
     "Create a project called 'Q1 Planning' and add a one-time requirement 'Review goals' due tomorrow",
     "Get all team members",
-    "Create a quarterly check-in template with goal areas for 'Engineering Excellence' and 'Customer Success'",
+    "Create project SR Quality review and assign it to me and then look at team with role direct and then create requirement for each one of them in that project",
   ];
 
   return (

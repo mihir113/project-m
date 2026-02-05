@@ -683,13 +683,13 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Per-member check-in toggle */}
-          <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: "#1e2130" }}>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-tertiary border border-default">
             <div>
               <p className="text-sm text-primary font-medium">Per-member check-in</p>
               <p className="text-xs text-muted">One submission per team member each cycle</p>
             </div>
             <button onClick={() => setEditForm({ ...editForm, isPerMemberCheckIn: !editForm.isPerMemberCheckIn, templateId: "" })}
-              className="w-10 h-5 rounded-full transition-colors relative" style={{ backgroundColor: editForm.isPerMemberCheckIn ? "#4f6ff5" : "#2a2d3a" }}>
+              className="w-10 h-5 rounded-full transition-colors relative" style={{ backgroundColor: editForm.isPerMemberCheckIn ? "#4f6ff5" : "var(--bg-secondary)" }}>
               <div className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" style={{ left: editForm.isPerMemberCheckIn ? "22px" : "2px" }} />
             </button>
           </div>
