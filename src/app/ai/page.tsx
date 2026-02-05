@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@/components/Toast";
+import { Modal } from "@/components/Modal";
 
 interface Operation {
   tool: string;
@@ -20,9 +21,11 @@ export default function AIPage() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<AgentResponse | null>(null);
+  const [previewPlan, setPreviewPlan] = useState<any>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   const { showToast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, skipPreview = false) => {
     e.preventDefault();
     if (!prompt.trim()) return;
 
@@ -33,20 +36,34 @@ export default function AIPage() {
       const res = await fetch("/api/ai-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() }),
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          preview: !skipPreview,
+          confirmedPlan: skipPreview ? previewPlan?.plan : undefined,
+        }),
       });
 
       const data = await res.json();
-      setResponse(data);
 
-      if (data.success) {
-        showToast(data.message, "success");
+      // If this is a preview, show confirmation dialog
+      if (data.preview) {
+        setPreviewPlan(data);
+        setShowConfirmation(true);
+        showToast("Review the planned operations", "success");
       } else {
-        // Show detailed error message if available
-        const errorMsg = data.error
-          ? `${data.message}: ${data.error}`
-          : data.message || "Operation failed";
-        showToast(errorMsg, "error");
+        // Execution completed
+        setResponse(data);
+        setPreviewPlan(null);
+        setShowConfirmation(false);
+
+        if (data.success) {
+          showToast(data.message, "success");
+        } else {
+          const errorMsg = data.error
+            ? `${data.message}: ${data.error}`
+            : data.message || "Operation failed";
+          showToast(errorMsg, "error");
+        }
       }
     } catch (error: any) {
       const errorMsg = error.message || "Failed to process AI request";
@@ -59,6 +76,19 @@ export default function AIPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleConfirm = async () => {
+    setShowConfirmation(false);
+    // Create a synthetic event to reuse handleSubmit
+    const syntheticEvent = { preventDefault: () => {} } as React.FormEvent;
+    await handleSubmit(syntheticEvent, true);
+  };
+
+  const handleCancel = () => {
+    setShowConfirmation(false);
+    setPreviewPlan(null);
+    showToast("Operation cancelled", "success");
   };
 
   const examplePrompts = [
@@ -178,6 +208,60 @@ export default function AIPage() {
           )}
         </div>
       )}
+
+      {/* Confirmation Modal */}
+      <Modal
+        open={showConfirmation}
+        onClose={handleCancel}
+        title="Confirm Operations"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-secondary">
+            The AI agent plans to execute the following operations:
+          </p>
+
+          {previewPlan?.operations && (
+            <div className="space-y-2">
+              {previewPlan.operations.map((op: any, idx: number) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-lg bg-tertiary border-l-4 border-[#4f6ff5]"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-medium text-primary">
+                      {idx + 1}. {op.tool}
+                    </span>
+                  </div>
+                  <p className="text-xs text-secondary">{op.description}</p>
+
+                  {/* Show arguments */}
+                  <details className="mt-2">
+                    <summary className="text-xs text-muted cursor-pointer hover:text-secondary">
+                      View parameters
+                    </summary>
+                    <pre className="mt-2 p-2 rounded bg-secondary text-xs text-primary overflow-x-auto">
+                      {JSON.stringify(op.arguments, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-default">
+            <button className="btn-ghost" onClick={handleCancel}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleConfirm}
+              disabled={loading}
+            >
+              {loading ? "Executing..." : "Confirm & Execute"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Documentation */}
       <div className="card p-6 mt-6">

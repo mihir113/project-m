@@ -237,6 +237,22 @@ const tools = [
 // TOOL IMPLEMENTATION FUNCTIONS
 // ─────────────────────────────────────────────
 
+// Helper function to generate human-readable descriptions
+function getToolDescription(toolName: string, args: any): string {
+  switch (toolName) {
+    case "get_team_members":
+      return "Fetch all team members from the database";
+    case "create_template":
+      return `Create template "${args.name}"${args.goalAreas ? ` with ${args.goalAreas.length} goal area(s)` : ""}`;
+    case "create_project":
+      return `Create project "${args.name}"${args.category ? ` in category "${args.category}"` : ""}`;
+    case "create_requirement":
+      return `Create ${args.type} requirement "${args.name}" due ${args.dueDate}`;
+    default:
+      return `Execute ${toolName}`;
+  }
+}
+
 async function executeGetTeamMembers(): Promise<any> {
   const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
   return { members };
@@ -324,7 +340,7 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { prompt } = body;
+    const { prompt, preview = false, confirmedPlan } = body;
 
     if (!prompt || typeof prompt !== "string") {
       return NextResponse.json(
@@ -385,11 +401,39 @@ Execute operations in logical order (e.g., create project before adding requirem
       });
     }
 
+    // PREVIEW MODE: Return plan without executing
+    if (preview) {
+      const plannedOperations = toolCalls.map((toolCall) => {
+        let args: any;
+        try {
+          args = JSON.parse(toolCall.function.arguments);
+        } catch {
+          args = {};
+        }
+        return {
+          tool: toolCall.function.name,
+          arguments: args,
+          description: getToolDescription(toolCall.function.name, args),
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        preview: true,
+        message: `Found ${plannedOperations.length} operation(s) to execute. Please confirm.`,
+        operations: plannedOperations,
+        plan: toolCalls, // Store the plan for execution
+      });
+    }
+
+    // Use confirmed plan if provided, otherwise use fresh tool calls
+    const executionPlan = confirmedPlan || toolCalls;
+
     // Step 2: Execute tool calls sequentially (to maintain order dependencies)
     const operations: AgentResponse["operations"] = [];
     const executionContext: Record<string, any> = {}; // Store results for cross-tool reference
 
-    for (const toolCall of toolCalls) {
+    for (const toolCall of executionPlan) {
       const functionName = toolCall.function.name;
       let functionArgs: any;
 
