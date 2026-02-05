@@ -504,8 +504,18 @@ export async function POST(req: NextRequest) {
           content: `You are an AI assistant that helps users manage their OpSync database through natural language commands.
 You have access to tools for creating templates, projects, requirements, and querying team members.
 
+TEAM MEMBER ROLES:
+The database contains team members with the following role values (case-sensitive):
+- "Engineer" - Software engineers and developers
+- "Manager" - Team managers and leads
+- "Direct" - Direct reports
+- "COE" - Center of Excellence members
+- "Contractor" - External contractors
+When filtering by role, use the exact capitalization shown above.
+
 IMPORTANT RULES:
 - When the user says "for each team member" or "for all team members", use create_requirements_for_all_team_members instead of create_requirement
+- When the user mentions filtering by role (e.g., "engineers", "direct reports", "COE"), use the get_team_members tool with the appropriate role parameter
 - Always use get_team_members first if the user mentions assigning to someone by specific name
 - When creating requirements, use ISO date format (YYYY-MM-DD) for dueDate
 - Execute operations in logical order (e.g., create project before adding requirements to it)`,
