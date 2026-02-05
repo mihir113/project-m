@@ -4,6 +4,7 @@
  * This file demonstrates various ways to use the AI agent hook in your components.
  */
 
+import { useState } from "react";
 import { useAIAgent } from "./useAIAgent";
 import { useToast } from "@/components/Toast";
 
