@@ -242,7 +242,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_requirements_for_all_team_members",
-      description: "Create a requirement for each team member. Use this when the user asks to create a task/requirement for each or all team members.",
+      description: "Create a requirement for each team member. Use this when the user asks to create a task/requirement for each or all team members. Supports filtering by role.",
       parameters: {
         type: "object",
         properties: {
@@ -279,6 +279,10 @@ const tools = [
           templateId: {
             type: "string",
             description: "Optional UUID of the check-in template to use",
+          },
+          role: {
+            type: "string",
+            description: "Optional filter by role (e.g., 'Engineer', 'Manager', 'Direct', 'COE'). If provided, creates requirements only for team members with this role.",
           },
         },
         required: ["projectId", "name", "type", "dueDate"],
@@ -436,17 +440,44 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
   return { requirement };
 }
 
-async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateRequirementParams, "ownerId">): Promise<any> {
+async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateRequirementParams, "ownerId"> & { role?: string }): Promise<any> {
   // Validate projectId is a valid UUID
   if (!params.projectId || !isValidUUID(params.projectId)) {
     throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
   }
 
-  // Fetch all team members
-  const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
+  // Normalize role filter if provided
+  let normalizedRole: string | null = null;
+  if (params.role) {
+    const roleMap: Record<string, string> = {
+      'engineer': 'Engineer',
+      'engineers': 'Engineer',
+      'manager': 'Manager',
+      'managers': 'Manager',
+      'direct': 'Direct',
+      'directs': 'Direct',
+      'coe': 'COE',
+      'contractor': 'Contractor',
+      'contractors': 'Contractor',
+    };
+    normalizedRole = roleMap[params.role.toLowerCase()] || params.role;
+  }
+
+  // Fetch team members (with optional role filter)
+  const members = normalizedRole
+    ? await db
+        .select()
+        .from(teamMembers)
+        .where(eq(teamMembers.role, normalizedRole))
+        .orderBy(teamMembers.nick)
+    : await db
+        .select()
+        .from(teamMembers)
+        .orderBy(teamMembers.nick);
 
   if (members.length === 0) {
-    throw new Error("No team members found in database");
+    const roleMsg = normalizedRole ? ` with role "${normalizedRole}"` : "";
+    throw new Error(`No team members found in database${roleMsg}`);
   }
 
   // Create a requirement for each team member
@@ -556,8 +587,11 @@ The database contains team members with the following role values (case-sensitiv
 When filtering by role, use the exact capitalization shown above.
 
 IMPORTANT RULES:
-- When the user says "for each team member" or "for all team members", use create_requirements_for_all_team_members instead of create_requirement
-- When the user mentions filtering by role (e.g., "engineers", "direct reports", "COE"), use the get_team_members tool with the appropriate role parameter
+- When the user says "for each team member" or "for all team members", use create_requirements_for_all_team_members
+- When the user mentions a specific role (e.g., "directs", "engineers", "COE members"), ALWAYS pass the role parameter to filter by that role:
+  * If using get_team_members, include { role: "Direct" } (or appropriate role)
+  * If using create_requirements_for_all_team_members, include { role: "Direct" } (or appropriate role)
+  * Pay attention to keywords like "with role X", "for directs", "engineers only", etc.
 - Always use get_team_members first if the user mentions assigning to someone by specific name
 - When creating requirements, use ISO date format (YYYY-MM-DD) for dueDate
 - Execute operations in logical order (e.g., create project before adding requirements to it)`,
@@ -599,8 +633,34 @@ IMPORTANT RULES:
 
         // Special handling for create_requirements_for_all_team_members
         if (toolCall.function.name === "create_requirements_for_all_team_members") {
-          // Fetch team members to show expanded preview
-          const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
+          // Normalize role filter if provided
+          let normalizedRole: string | null = null;
+          if (args.role) {
+            const roleMap: Record<string, string> = {
+              'engineer': 'Engineer',
+              'engineers': 'Engineer',
+              'manager': 'Manager',
+              'managers': 'Manager',
+              'direct': 'Direct',
+              'directs': 'Direct',
+              'coe': 'COE',
+              'contractor': 'Contractor',
+              'contractors': 'Contractor',
+            };
+            normalizedRole = roleMap[args.role.toLowerCase()] || args.role;
+          }
+
+          // Fetch team members to show expanded preview (with optional role filter)
+          const members = normalizedRole
+            ? await db
+                .select()
+                .from(teamMembers)
+                .where(eq(teamMembers.role, normalizedRole))
+                .orderBy(teamMembers.nick)
+            : await db
+                .select()
+                .from(teamMembers)
+                .orderBy(teamMembers.nick);
 
           // Show one operation for each team member
           for (const member of members) {
