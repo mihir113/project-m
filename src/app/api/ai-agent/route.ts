@@ -318,12 +318,29 @@ function getToolDescription(toolName: string, args: any, teamMemberName?: string
 }
 
 async function executeGetTeamMembers(params?: { role?: string }): Promise<any> {
+  // Normalize role filter: handle case-insensitivity and plurals
+  let normalizedRole: string | null = null;
+  if (params?.role) {
+    const roleMap: Record<string, string> = {
+      'engineer': 'Engineer',
+      'engineers': 'Engineer',
+      'manager': 'Manager',
+      'managers': 'Manager',
+      'direct': 'Direct',
+      'directs': 'Direct',
+      'coe': 'COE',
+      'contractor': 'Contractor',
+      'contractors': 'Contractor',
+    };
+    normalizedRole = roleMap[params.role.toLowerCase()] || params.role;
+  }
+
   // Build query with optional role filter
-  const members = params?.role
+  const members = normalizedRole
     ? await db
         .select()
         .from(teamMembers)
-        .where(eq(teamMembers.role, params.role))
+        .where(eq(teamMembers.role, normalizedRole))
         .orderBy(teamMembers.nick)
     : await db
         .select()
@@ -332,7 +349,7 @@ async function executeGetTeamMembers(params?: { role?: string }): Promise<any> {
 
   return {
     members,
-    filter: params?.role ? { role: params.role } : null,
+    filter: normalizedRole ? { role: normalizedRole } : null,
     count: members.length,
   };
 }
@@ -718,7 +735,7 @@ IMPORTANT RULES:
     // Log execution to database
     const executionTime = Date.now() - startTime;
     try {
-      await db.insert(aiExecutionLogs).values({
+      const logData = {
         prompt,
         success: errorCount === 0,
         operationsCount: operations.length,
@@ -726,9 +743,17 @@ IMPORTANT RULES:
         errorCount,
         operations: JSON.stringify(operations),
         executionTimeMs: executionTime,
-      });
-    } catch (logError) {
+      };
+      console.log("Attempting to log AI execution:", logData);
+      await db.insert(aiExecutionLogs).values(logData);
+      console.log("Successfully logged AI execution");
+    } catch (logError: any) {
       console.error("Failed to log AI execution:", logError);
+      console.error("Log error details:", {
+        message: logError.message,
+        stack: logError.stack,
+        code: logError.code,
+      });
       // Don't fail the request if logging fails
     }
 
