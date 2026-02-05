@@ -11,6 +11,7 @@ import {
   aiExecutionLogs,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { aiAgentRateLimiter, getClientIP } from "@/lib/rateLimiter";
 
 // ─────────────────────────────────────────────
 // TYPE DEFINITIONS
@@ -340,6 +341,32 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+
+  // Rate limiting
+  const clientIP = getClientIP(req);
+  const rateLimit = aiAgentRateLimiter.check(clientIP);
+
+  if (!rateLimit.allowed) {
+    const resetInSeconds = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Rate limit exceeded",
+        error: `Too many requests. Please try again in ${resetInSeconds} seconds.`,
+        operations: [],
+      },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "10",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": rateLimit.resetAt.toString(),
+          "Retry-After": resetInSeconds.toString(),
+        },
+      }
+    );
+  }
+
   try {
     const body = await req.json();
     const { prompt, preview = false, confirmedPlan } = body;
@@ -532,7 +559,15 @@ Execute operations in logical order (e.g., create project before adding requirem
       // Don't fail the request if logging fails
     }
 
-    return NextResponse.json(response);
+    // Add rate limit headers to successful responses
+    const rateLimitStatus = aiAgentRateLimiter.getStatus(clientIP);
+    return NextResponse.json(response, {
+      headers: {
+        "X-RateLimit-Limit": "10",
+        "X-RateLimit-Remaining": rateLimitStatus.remaining.toString(),
+        "X-RateLimit-Reset": rateLimitStatus.resetAt.toString(),
+      },
+    });
   } catch (error: any) {
     console.error("AI Agent error:", error);
 
