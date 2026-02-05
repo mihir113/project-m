@@ -514,10 +514,9 @@ export default function ProjectDetailPage() {
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: req.status === "completed" ? "#34d399" : req.status === "overdue" ? "#f87171" : "#fbbf24" }} />
                   <div className="flex-1 min-w-0">
-                    {/* Title with status badge on the right */}
+                    {/* Title */}
                     <div className="flex items-start justify-between gap-3 mb-2">
                       <p className="text-primary text-sm font-medium flex-1">{req.name}</p>
-                      <span className={`badge-${req.status} flex-shrink-0`}>{req.status}</span>
                     </div>
                     {/* Other badges */}
                     {(req.isPerMemberCheckIn || req.templateId || (req.type === "recurring" && req.recurrence)) && (
@@ -540,7 +539,7 @@ export default function ProjectDetailPage() {
                   {req.status !== "completed" && (
                     req.isPerMemberCheckIn
                       ? <button className="btn-primary text-xs whitespace-nowrap" onClick={() => openCheckin(req)}>Check-ins</button>
-                      : <button className="btn-primary text-xs whitespace-nowrap" onClick={() => { setCompleteModalReq(req); setCompleteNotes(""); }}>✓ Complete</button>
+                      : <button className="btn-success text-xs whitespace-nowrap" onClick={() => { setCompleteModalReq(req); setCompleteNotes(""); }}>✓ Complete</button>
                   )}
                   {req.isPerMemberCheckIn && <button className="btn-ghost text-xs" onClick={() => openHistory(req)}>History</button>}
                   <button className="btn-ghost text-xs" onClick={() => openEdit(req)} title="Edit">✎ Edit</button>

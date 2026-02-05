@@ -4,6 +4,11 @@ module.exports = {
   content: [
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    'badge-pending',
+    'badge-completed',
+    'badge-overdue',
+  ],
   theme: {
     extend: {
       colors: {

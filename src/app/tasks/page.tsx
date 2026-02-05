@@ -54,6 +54,25 @@ export default function TasksPage() {
   const [completingTask, setCompletingTask] = useState<string | null>(null);
   const { showToast } = useToast();
 
+  // Collapsed project groups (persisted in localStorage)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("tasks-collapsed-groups");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const toggleGroup = (projectId: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      localStorage.setItem("tasks-collapsed-groups", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
   // Add modal state
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -291,7 +310,16 @@ export default function TasksPage() {
           {Object.entries(groupedTasks).map(([projectId, { projectName, projectColor, tasks }]) => (
             <div key={projectId} className="card p-4">
               {/* Project Header */}
-              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-default">
+              <div
+                className="flex items-center gap-3 pb-3 border-b border-default cursor-pointer select-none"
+                onClick={() => toggleGroup(projectId)}
+              >
+                <svg
+                  className={`w-4 h-4 text-muted transition-transform duration-200 ${collapsedGroups.has(projectId) ? "" : "rotate-90"}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
                 <div className="w-3 h-3 rounded-full" style={{ backgroundColor: projectColor }} />
                 <h2 className="text-base font-semibold text-primary flex-1">{projectName}</h2>
                 <span className="text-xs text-muted">{tasks.length} task{tasks.length !== 1 ? "s" : ""}</span>
@@ -299,13 +327,14 @@ export default function TasksPage() {
                   href={`/projects/${projectId}`}
                   className="text-xs font-medium"
                   style={{ color: projectColor }}
+                  onClick={(e) => e.stopPropagation()}
                 >
                   View Project →
                 </Link>
               </div>
 
               {/* Tasks List */}
-              <div className="space-y-2">
+              {!collapsedGroups.has(projectId) && <div className="space-y-2 mt-4">
                 {tasks.map((task) => (
                   <div
                     key={task.id}
@@ -362,7 +391,7 @@ export default function TasksPage() {
                     </div>
                   </div>
                 ))}
-              </div>
+              </div>}
             </div>
           ))}
         </div>

@@ -47,6 +47,25 @@ export default function DashboardPage() {
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
+  // Collapsed categories (persisted in localStorage)
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("dashboard-collapsed-categories");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const toggleCategory = (category: string) => {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      localStorage.setItem("dashboard-collapsed-categories", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
   // Summary stats — computed from projects data
   const stats = {
     activeProjects: projects.filter((p) => p.status === "active").length,
@@ -255,7 +274,16 @@ export default function DashboardPage() {
             {sortedCategories.map((category) => (
               <div key={category} className="card p-6">
                 {/* Category Header */}
-                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-default">
+                <div
+                  className="flex items-center gap-3 pb-3 border-b border-default cursor-pointer select-none"
+                  onClick={() => toggleCategory(category)}
+                >
+                  <svg
+                    className={`w-4 h-4 text-muted transition-transform duration-200 ${collapsedCategories.has(category) ? "" : "rotate-90"}`}
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
                   <div className="flex-1">
                     <h3 className="text-base font-semibold text-primary">{category}</h3>
                     <p className="text-xs text-muted mt-0.5">
@@ -265,7 +293,7 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Project Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {!collapsedCategories.has(category) && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
                   {projectsByCategory[category].map((project) => (
                     <Link
                       key={project.id}
@@ -322,7 +350,7 @@ export default function DashboardPage() {
                       </div>
                     </Link>
                   ))}
-                </div>
+                </div>}
               </div>
             ))}
           </div>
