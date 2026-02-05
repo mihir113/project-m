@@ -313,14 +313,18 @@ function getToolDescription(toolName: string, args: any, teamMemberName?: string
 }
 
 async function executeGetTeamMembers(params?: { role?: string }): Promise<any> {
-  let query = db.select().from(teamMembers);
+  // Build query with optional role filter
+  const members = params?.role
+    ? await db
+        .select()
+        .from(teamMembers)
+        .where(eq(teamMembers.role, params.role))
+        .orderBy(teamMembers.nick)
+    : await db
+        .select()
+        .from(teamMembers)
+        .orderBy(teamMembers.nick);
 
-  // Apply role filter if provided
-  if (params?.role) {
-    query = query.where(eq(teamMembers.role, params.role));
-  }
-
-  const members = await query.orderBy(teamMembers.nick);
   return {
     members,
     filter: params?.role ? { role: params.role } : null,
