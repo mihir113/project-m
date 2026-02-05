@@ -10,7 +10,7 @@ import {
   templateGoals,
   aiExecutionLogs,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { aiAgentRateLimiter, getClientIP } from "@/lib/rateLimiter";
 
 // ─────────────────────────────────────────────
@@ -338,15 +338,13 @@ async function executeGetTeamMembers(params?: { role?: string }): Promise<any> {
 }
 
 async function executeCreateTemplate(params: CreateTemplateParams): Promise<any> {
-  // Create the template with explicit values for all fields
-  const templateData = {
-    name: params.name.trim(),
-    description: params.description?.trim() || "",
-  };
-
+  // Create the template with explicit SQL NULL for optional fields
   const [template] = await db
     .insert(checkInTemplates)
-    .values(templateData)
+    .values({
+      name: params.name.trim(),
+      description: params.description ? sql`${params.description.trim()}` : sql`NULL`,
+    })
     .returning();
 
   // If goal areas are provided, create them with their goals
@@ -380,18 +378,16 @@ async function executeCreateTemplate(params: CreateTemplateParams): Promise<any>
 }
 
 async function executeCreateProject(params: CreateProjectParams): Promise<any> {
-  // Create project with explicit values for all fields
-  const projectData = {
-    name: params.name.trim(),
-    description: params.description?.trim() || "",
-    status: params.status || "active",
-    color: params.color || "#4f6ff5",
-    category: params.category?.trim() || "",
-  };
-
+  // Create project with explicit SQL NULL for optional fields
   const [project] = await db
     .insert(projects)
-    .values(projectData)
+    .values({
+      name: params.name.trim(),
+      description: params.description ? sql`${params.description.trim()}` : sql`NULL`,
+      status: params.status || "active",
+      color: params.color || "#4f6ff5",
+      category: params.category ? sql`${params.category.trim()}` : sql`NULL`,
+    })
     .returning();
 
   return { project };
@@ -403,23 +399,21 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
     throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
   }
 
-  // Build requirement data with explicit handling of optional fields
-  const requirementData: any = {
-    projectId: params.projectId,
-    name: params.name.trim(),
-    description: params.description?.trim() || "",
-    type: params.type,
-    recurrence: params.type === "recurring" && params.recurrence ? params.recurrence : null,
-    dueDate: params.dueDate,
-    status: "pending",
-    ownerId: params.ownerId || null,
-    isPerMemberCheckIn: params.isPerMemberCheckIn || false,
-    templateId: params.templateId || null,
-  };
-
+  // Build requirement with explicit SQL NULL for optional fields
   const [requirement] = await db
     .insert(requirements)
-    .values(requirementData)
+    .values({
+      projectId: params.projectId,
+      name: params.name.trim(),
+      description: params.description ? sql`${params.description.trim()}` : sql`NULL`,
+      type: params.type,
+      recurrence: params.type === "recurring" && params.recurrence ? params.recurrence : sql`NULL`,
+      dueDate: params.dueDate,
+      status: "pending" as const,
+      ownerId: params.ownerId || sql`NULL`,
+      isPerMemberCheckIn: params.isPerMemberCheckIn || false,
+      templateId: params.templateId || sql`NULL`,
+    })
     .returning();
 
   return { requirement };
@@ -441,22 +435,20 @@ async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateReq
   // Create a requirement for each team member
   const createdRequirements = [];
   for (const member of members) {
-    const requirementData: any = {
-      projectId: params.projectId,
-      name: `${params.name} - ${member.nick}`.trim(),
-      description: params.description?.trim() || "",
-      type: params.type,
-      recurrence: params.type === "recurring" && params.recurrence ? params.recurrence : null,
-      dueDate: params.dueDate,
-      status: "pending",
-      ownerId: member.id,
-      isPerMemberCheckIn: params.isPerMemberCheckIn || false,
-      templateId: params.templateId || null,
-    };
-
     const [requirement] = await db
       .insert(requirements)
-      .values(requirementData)
+      .values({
+        projectId: params.projectId,
+        name: `${params.name} - ${member.nick}`.trim(),
+        description: params.description ? sql`${params.description.trim()}` : sql`NULL`,
+        type: params.type,
+        recurrence: params.type === "recurring" && params.recurrence ? params.recurrence : sql`NULL`,
+        dueDate: params.dueDate,
+        status: "pending" as const,
+        ownerId: member.id,
+        isPerMemberCheckIn: params.isPerMemberCheckIn || false,
+        templateId: params.templateId || sql`NULL`,
+      })
       .returning();
     createdRequirements.push(requirement);
   }
