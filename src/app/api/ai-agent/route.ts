@@ -8,6 +8,7 @@ import {
   checkInTemplates,
   templateGoalAreas,
   templateGoals,
+  aiExecutionLogs,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -338,6 +339,7 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
 // ─────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   try {
     const body = await req.json();
     const { prompt, preview = false, confirmedPlan } = body;
@@ -512,6 +514,23 @@ Execute operations in logical order (e.g., create project before adding requirem
       message,
       operations,
     };
+
+    // Log execution to database
+    const executionTime = Date.now() - startTime;
+    try {
+      await db.insert(aiExecutionLogs).values({
+        prompt,
+        success: errorCount === 0,
+        operationsCount: operations.length,
+        successCount,
+        errorCount,
+        operations: JSON.stringify(operations),
+        executionTimeMs: executionTime,
+      });
+    } catch (logError) {
+      console.error("Failed to log AI execution:", logError);
+      // Don't fail the request if logging fails
+    }
 
     return NextResponse.json(response);
   } catch (error: any) {

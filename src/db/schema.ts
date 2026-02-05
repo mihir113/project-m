@@ -222,6 +222,22 @@ export const metricEntries = pgTable("metric_entries", {
 });
 
 // ─────────────────────────────────────────────
+// TABLE: ai_execution_logs
+// Logs for AI agent executions
+// ─────────────────────────────────────────────
+export const aiExecutionLogs = pgTable("ai_execution_logs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  prompt: text("prompt").notNull(),
+  success: boolean("success").notNull(),
+  operationsCount: integer("operations_count").notNull(),
+  successCount: integer("success_count").notNull(),
+  errorCount: integer("error_count").notNull(),
+  operations: text("operations").notNull(), // JSON string of operations
+  executionTimeMs: integer("execution_time_ms"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
 // RELATIONS
 // ─────────────────────────────────────────────
 export const teamMembersRelations = relations(teamMembers, ({ many }) => ({

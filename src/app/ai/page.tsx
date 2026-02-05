@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import { Modal } from "@/components/Modal";
 
@@ -100,11 +101,16 @@ export default function AIPage() {
 
   return (
     <div className="animate-fadeIn max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-primary">AI Assistant</h1>
-        <p className="text-secondary text-sm mt-1">
-          Natural language database operations powered by Groq
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-primary">AI Assistant</h1>
+          <p className="text-secondary text-sm mt-1">
+            Natural language database operations powered by Groq
+          </p>
+        </div>
+        <Link href="/ai-logs" className="text-sm text-[#4f6ff5] hover:underline">
+          View Execution Logs →
+        </Link>
       </div>
 
       {/* Input Form */}
