@@ -84,10 +84,15 @@ const tools = [
     type: "function",
     function: {
       name: "get_team_members",
-      description: "Get all team members from the database. Use this to find team member IDs for assignment.",
+      description: "Get team members from the database with optional filters. Use this to find team member IDs for assignment or to filter by specific roles.",
       parameters: {
         type: "object",
-        properties: {},
+        properties: {
+          role: {
+            type: "string",
+            description: "Optional filter by role (e.g., 'Engineer', 'Manager', 'Direct', 'COE'). If not provided, returns all team members.",
+          },
+        },
         required: [],
       },
     },
@@ -290,7 +295,9 @@ const tools = [
 function getToolDescription(toolName: string, args: any, teamMemberName?: string): string {
   switch (toolName) {
     case "get_team_members":
-      return "Fetch all team members from the database";
+      return args.role
+        ? `Fetch team members with role "${args.role}"`
+        : "Fetch all team members from the database";
     case "create_template":
       return `Create template "${args.name}"${args.goalAreas ? ` with ${args.goalAreas.length} goal area(s)` : ""}`;
     case "create_project":
@@ -305,9 +312,20 @@ function getToolDescription(toolName: string, args: any, teamMemberName?: string
   }
 }
 
-async function executeGetTeamMembers(): Promise<any> {
-  const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
-  return { members };
+async function executeGetTeamMembers(params?: { role?: string }): Promise<any> {
+  let query = db.select().from(teamMembers);
+
+  // Apply role filter if provided
+  if (params?.role) {
+    query = query.where(eq(teamMembers.role, params.role));
+  }
+
+  const members = await query.orderBy(teamMembers.nick);
+  return {
+    members,
+    filter: params?.role ? { role: params.role } : null,
+    count: members.length,
+  };
 }
 
 async function executeCreateTemplate(params: CreateTemplateParams): Promise<any> {
@@ -590,7 +608,7 @@ IMPORTANT RULES:
 
         switch (functionName) {
           case "get_team_members":
-            result = await executeGetTeamMembers();
+            result = await executeGetTeamMembers(functionArgs);
             executionContext.teamMembers = result.members;
             break;
 
