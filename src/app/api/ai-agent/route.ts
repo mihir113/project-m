@@ -338,13 +338,15 @@ async function executeGetTeamMembers(params?: { role?: string }): Promise<any> {
 }
 
 async function executeCreateTemplate(params: CreateTemplateParams): Promise<any> {
-  // Create the template
+  // Create the template with explicit values for all fields
+  const templateData = {
+    name: params.name.trim(),
+    description: params.description?.trim() || "",
+  };
+
   const [template] = await db
     .insert(checkInTemplates)
-    .values({
-      name: params.name.trim(),
-      description: params.description ? params.description.trim() : null,
-    })
+    .values(templateData)
     .returning();
 
   // If goal areas are provided, create them with their goals
@@ -378,15 +380,18 @@ async function executeCreateTemplate(params: CreateTemplateParams): Promise<any>
 }
 
 async function executeCreateProject(params: CreateProjectParams): Promise<any> {
+  // Create project with explicit values for all fields
+  const projectData = {
+    name: params.name.trim(),
+    description: params.description?.trim() || "",
+    status: params.status || "active",
+    color: params.color || "#4f6ff5",
+    category: params.category?.trim() || "",
+  };
+
   const [project] = await db
     .insert(projects)
-    .values({
-      name: params.name.trim(),
-      description: params.description ? params.description.trim() : null,
-      status: params.status || "active",
-      color: params.color || "#4f6ff5",
-      category: params.category ? params.category.trim() : null,
-    })
+    .values(projectData)
     .returning();
 
   return { project };
@@ -398,20 +403,23 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
     throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
   }
 
+  // Build requirement data with explicit handling of optional fields
+  const requirementData: any = {
+    projectId: params.projectId,
+    name: params.name.trim(),
+    description: params.description?.trim() || "",
+    type: params.type,
+    recurrence: params.type === "recurring" && params.recurrence ? params.recurrence : null,
+    dueDate: params.dueDate,
+    status: "pending",
+    ownerId: params.ownerId || null,
+    isPerMemberCheckIn: params.isPerMemberCheckIn || false,
+    templateId: params.templateId || null,
+  };
+
   const [requirement] = await db
     .insert(requirements)
-    .values({
-      projectId: params.projectId,
-      name: params.name.trim(),
-      description: params.description ? params.description.trim() : null,
-      type: params.type,
-      recurrence: params.type === "recurring" ? params.recurrence : null,
-      dueDate: params.dueDate,
-      status: "pending",
-      ownerId: params.ownerId || null,
-      isPerMemberCheckIn: params.isPerMemberCheckIn || false,
-      templateId: params.templateId || null,
-    })
+    .values(requirementData)
     .returning();
 
   return { requirement };
@@ -433,20 +441,22 @@ async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateReq
   // Create a requirement for each team member
   const createdRequirements = [];
   for (const member of members) {
+    const requirementData: any = {
+      projectId: params.projectId,
+      name: `${params.name} - ${member.nick}`.trim(),
+      description: params.description?.trim() || "",
+      type: params.type,
+      recurrence: params.type === "recurring" && params.recurrence ? params.recurrence : null,
+      dueDate: params.dueDate,
+      status: "pending",
+      ownerId: member.id,
+      isPerMemberCheckIn: params.isPerMemberCheckIn || false,
+      templateId: params.templateId || null,
+    };
+
     const [requirement] = await db
       .insert(requirements)
-      .values({
-        projectId: params.projectId,
-        name: `${params.name} - ${member.nick}`.trim(),
-        description: params.description ? params.description.trim() : null,
-        type: params.type,
-        recurrence: params.type === "recurring" ? params.recurrence : null,
-        dueDate: params.dueDate,
-        status: "pending",
-        ownerId: member.id,
-        isPerMemberCheckIn: params.isPerMemberCheckIn || false,
-        templateId: params.templateId || null,
-      })
+      .values(requirementData)
       .returning();
     createdRequirements.push(requirement);
   }
