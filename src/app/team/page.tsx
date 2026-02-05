@@ -24,6 +24,25 @@ export default function TeamPage() {
 
   const { showToast } = useToast();
 
+  // Collapsed role groups (persisted in localStorage)
+  const [collapsedRoles, setCollapsedRoles] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("team-collapsed-roles");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  const toggleRole = (role: string) => {
+    setCollapsedRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(role)) next.delete(role);
+      else next.add(role);
+      localStorage.setItem("team-collapsed-roles", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
   // Fetch team members
   const fetchMembers = async () => {
     try {
@@ -264,55 +283,84 @@ export default function TeamPage() {
           </div>
         </div>
 
-        {/* ── Right: Roster table ── */}
+        {/* ── Right: Roster grouped by role ── */}
         <div className="md:col-span-2">
-          <div className="card p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-primary">
-                Roster ({members.length})
-              </h2>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-primary">
+              Roster ({members.length})
+            </h2>
+          </div>
 
-            {loading ? (
+          {loading ? (
+            <div className="card p-5">
               <p className="text-muted text-sm py-8 text-center">Loading...</p>
-            ) : members.length === 0 ? (
+            </div>
+          ) : members.length === 0 ? (
+            <div className="card p-5">
               <p className="text-muted text-sm py-8 text-center">
                 No team members yet. Add one on the left.
               </p>
-            ) : (
-              <div className="rounded-lg overflow-hidden border border-default">
-                <table className="w-full">
-                  <thead>
-                    <tr style={{ backgroundColor: "#1e2130" }}>
-                      <th className="text-left px-4 py-2.5 text-muted text-xs font-medium uppercase tracking-wide">Nick</th>
-                      <th className="text-left px-4 py-2.5 text-muted text-xs font-medium uppercase tracking-wide">Role</th>
-                      <th className="px-4 py-2.5"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {members.map((m) => (
-                      <tr key={m.id} className="border-t border-default hover:bg-tertiary transition-colors">
-                        <td className="px-4 py-3">
-                          <p className="text-primary text-sm font-medium">{m.nick}</p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-secondary text-sm">{m.role}</p>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            className="btn-danger text-xs"
-                            onClick={() => handleDelete(m.id, m.nick)}
-                          >
-                            Remove
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {Object.entries(
+                members.reduce<Record<string, TeamMember[]>>((acc, m) => {
+                  const r = m.role || "Unassigned";
+                  if (!acc[r]) acc[r] = [];
+                  acc[r].push(m);
+                  return acc;
+                }, {})
+              )
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([roleName, roleMembers]) => (
+                  <div key={roleName} className="card p-5">
+                    <div
+                      className="flex items-center gap-3 pb-3 border-b border-default cursor-pointer select-none"
+                      onClick={() => toggleRole(roleName)}
+                    >
+                      <svg
+                        className={`w-4 h-4 text-muted transition-transform duration-200 ${collapsedRoles.has(roleName) ? "" : "rotate-90"}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                      <h3 className="text-base font-semibold text-primary flex-1">{roleName}</h3>
+                      <span className="text-xs text-muted">{roleMembers.length} member{roleMembers.length !== 1 ? "s" : ""}</span>
+                    </div>
+
+                    {!collapsedRoles.has(roleName) && (
+                      <div className="rounded-lg overflow-hidden border border-default mt-4">
+                        <table className="w-full">
+                          <thead>
+                            <tr style={{ backgroundColor: "#1e2130" }}>
+                              <th className="text-left px-4 py-2.5 text-muted text-xs font-medium uppercase tracking-wide">Nick</th>
+                              <th className="px-4 py-2.5"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {roleMembers.map((m) => (
+                              <tr key={m.id} className="border-t border-default hover:bg-tertiary transition-colors">
+                                <td className="px-4 py-3">
+                                  <p className="text-primary text-sm font-medium">{m.nick}</p>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  <button
+                                    className="btn-danger text-xs"
+                                    onClick={() => handleDelete(m.id, m.nick)}
+                                  >
+                                    Remove
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -8,7 +8,7 @@ import { OwnerChip, UnassignedChip } from "@/components/OwnerChip";
 import { generateCycleLabel } from "@/types";
 
 // ─── Types ───
-interface Project { id: string; name: string; description: string | null; status: string; color: string; }
+interface Project { id: string; name: string; description: string | null; status: string; color: string; category: string | null; }
 interface TeamMember { id: string; nick: string; role: string; }
 interface Requirement {
   id: string; projectId: string; name: string; description: string | null;
@@ -100,7 +100,10 @@ export default function ProjectDetailPage() {
 
   // ── Project Edit/Delete ──
   const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
-  const [projectForm, setProjectForm] = useState({ name: "", description: "", status: "active", color: "#4f6ff5" });
+  const [projectForm, setProjectForm] = useState({ name: "", description: "", status: "active", color: "#4f6ff5", category: "" });
+  const [categories, setCategories] = useState<string[]>([]);
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
   const [savingProject, setSavingProject] = useState(false);
   const [deleteProjectConfirm, setDeleteProjectConfirm] = useState(false);
 
@@ -117,9 +120,12 @@ export default function ProjectDetailPage() {
         projRes.json(), reqRes.json(), teamRes.json(), tmplRes.json(),
       ]);
 
-      const proj = (projJson.data || []).find((p: Project) => p.id === projectId);
+      const allProjects = projJson.data || [];
+      const proj = allProjects.find((p: Project) => p.id === projectId);
       if (!proj) { router.push("/projects"); return; }
 
+      const uniqueCats = Array.from(new Set(allProjects.map((p: Project) => p.category).filter(Boolean))) as string[];
+      setCategories(uniqueCats.sort());
       setProject(proj);
       setRequirements(reqJson.data || []);
       setTeamMembers(teamJson.data || []);
@@ -388,8 +394,29 @@ export default function ProjectDetailPage() {
       description: project.description || "",
       status: project.status,
       color: project.color,
+      category: project.category || "",
     });
+    setShowNewCategory(false);
+    setNewCategoryInput("");
     setEditProjectModalOpen(true);
+  };
+
+  const handleProjectCategoryChange = (value: string) => {
+    if (value === "__new__") {
+      setShowNewCategory(true);
+      setProjectForm({ ...projectForm, category: "" });
+    } else {
+      setShowNewCategory(false);
+      setProjectForm({ ...projectForm, category: value });
+    }
+  };
+
+  const handleNewCategoryConfirm = () => {
+    if (newCategoryInput.trim()) {
+      setProjectForm({ ...projectForm, category: newCategoryInput.trim() });
+      setShowNewCategory(false);
+      setNewCategoryInput("");
+    }
   };
 
   const handleSaveProject = async () => {
@@ -405,6 +432,7 @@ export default function ProjectDetailPage() {
           description: projectForm.description || null,
           status: projectForm.status,
           color: projectForm.color,
+          category: projectForm.category || null,
         }),
       });
       showToast("Project updated", "success");
@@ -507,7 +535,7 @@ export default function ProjectDetailPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map((req) => (
-            <div key={req.id} className="card p-4">
+            <div key={req.id} className="card p-4 cursor-pointer hover:bg-tertiary transition-colors" onClick={() => openEdit(req)}>
               {/* Mobile-friendly flex layout */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 {/* Status indicator + Content */}
@@ -535,14 +563,13 @@ export default function ProjectDetailPage() {
                 </div>
 
                 {/* Action buttons - stack on mobile */}
-                <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0">
+                <div className="flex gap-2 flex-wrap sm:flex-nowrap sm:flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   {req.status !== "completed" && (
                     req.isPerMemberCheckIn
                       ? <button className="btn-primary text-xs whitespace-nowrap" onClick={() => openCheckin(req)}>Check-ins</button>
                       : <button className="btn-success text-xs whitespace-nowrap" onClick={() => { setCompleteModalReq(req); setCompleteNotes(""); }}>✓ Complete</button>
                   )}
                   {req.isPerMemberCheckIn && <button className="btn-ghost text-xs" onClick={() => openHistory(req)}>History</button>}
-                  <button className="btn-ghost text-xs" onClick={() => openEdit(req)} title="Edit">✎ Edit</button>
                   <button className="btn-danger text-xs" onClick={() => handleDeleteRequirement(req)} title="Delete">Delete</button>
                 </div>
               </div>
@@ -571,8 +598,8 @@ export default function ProjectDetailPage() {
           <div className="flex gap-2">
             {["one-time", "recurring"].map((t) => (
               <button key={t} onClick={() => setReqForm({ ...reqForm, type: t as any })}
-                className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={{ backgroundColor: reqForm.type === t ? "#4f6ff5" : "#1e2130", color: reqForm.type === t ? "#fff" : "#9a9eb5" }}>
+                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${reqForm.type === t ? "text-white" : "text-muted bg-tertiary"}`}
+                style={reqForm.type === t ? { backgroundColor: "#4f6ff5" } : {}}>
                 {t === "one-time" ? "One-time" : "Recurring"}
               </button>
             ))}
@@ -604,13 +631,13 @@ export default function ProjectDetailPage() {
           </div>
 
           {/* Per-member check-in toggle */}
-          <div className="flex items-center justify-between p-3 rounded-lg" style={{ backgroundColor: "#1e2130" }}>
+          <div className="flex items-center justify-between p-3 rounded-lg bg-tertiary border border-default">
             <div>
               <p className="text-sm text-primary font-medium">Per-member check-in</p>
               <p className="text-xs text-muted">One submission per team member each cycle</p>
             </div>
             <button onClick={() => setReqForm({ ...reqForm, isPerMemberCheckIn: !reqForm.isPerMemberCheckIn, templateId: "" })}
-              className="w-10 h-5 rounded-full transition-colors relative" style={{ backgroundColor: reqForm.isPerMemberCheckIn ? "#4f6ff5" : "#2a2d3a" }}>
+              className="w-10 h-5 rounded-full transition-colors relative" style={{ backgroundColor: reqForm.isPerMemberCheckIn ? "#4f6ff5" : "var(--bg-secondary)" }}>
               <div className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" style={{ left: reqForm.isPerMemberCheckIn ? "22px" : "2px" }} />
             </button>
           </div>
@@ -940,6 +967,28 @@ export default function ProjectDetailPage() {
               value={projectForm.description}
               onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
             />
+          </div>
+          <div>
+            <label className="text-xs text-muted mb-1 block">Category (optional)</label>
+            {!showNewCategory ? (
+              <>
+                <select className="input-field" value={projectForm.category || ""} onChange={(e) => handleProjectCategoryChange(e.target.value)}>
+                  <option value="">No category</option>
+                  {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                  <option value="__new__">+ Add new category</option>
+                </select>
+                {projectForm.category && !categories.includes(projectForm.category) && (
+                  <p className="text-xs mt-1" style={{ color: "#34d399" }}>✓ New category &ldquo;{projectForm.category}&rdquo; will be created</p>
+                )}
+              </>
+            ) : (
+              <div className="flex gap-2">
+                <input className="input-field flex-1" placeholder="Enter category name" value={newCategoryInput} onChange={(e) => setNewCategoryInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleNewCategoryConfirm(); if (e.key === "Escape") { setShowNewCategory(false); setNewCategoryInput(""); } }} autoFocus />
+                <button className="btn-primary" onClick={handleNewCategoryConfirm} disabled={!newCategoryInput.trim()}>Add</button>
+                <button className="btn-ghost" onClick={() => { setShowNewCategory(false); setNewCategoryInput(""); }}>Cancel</button>
+              </div>
+            )}
           </div>
           <div>
             <label className="text-xs text-muted mb-1 block">Status</label>
