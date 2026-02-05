@@ -42,13 +42,18 @@ export default function AIPage() {
       if (data.success) {
         showToast(data.message, "success");
       } else {
-        showToast(data.message || "Operation failed", "error");
+        // Show detailed error message if available
+        const errorMsg = data.error
+          ? `${data.message}: ${data.error}`
+          : data.message || "Operation failed";
+        showToast(errorMsg, "error");
       }
-    } catch (error) {
-      showToast("Failed to process AI request", "error");
+    } catch (error: any) {
+      const errorMsg = error.message || "Failed to process AI request";
+      showToast(errorMsg, "error");
       setResponse({
         success: false,
-        message: "Network error occurred",
+        message: `Network error: ${errorMsg}`,
         operations: [],
       });
     } finally {

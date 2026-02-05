@@ -333,6 +333,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Check if API key is configured
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Groq API key not configured",
+          error: "GROQ_API_KEY environment variable is not set. Please add it to your environment variables.",
+          operations: [],
+        },
+        { status: 500 }
+      );
+    }
+
     // Initialize Groq client
     const groq = new Groq({
       apiKey: process.env.GROQ_API_KEY,
@@ -459,11 +472,27 @@ Execute operations in logical order (e.g., create project before adding requirem
     return NextResponse.json(response);
   } catch (error: any) {
     console.error("AI Agent error:", error);
+
+    // Provide more specific error messages
+    let errorMessage = error.message || "Unknown error";
+    let userMessage = "Failed to process AI request";
+
+    if (error.message?.includes("API key")) {
+      userMessage = "Authentication failed";
+      errorMessage = "Invalid or missing Groq API key. Please check your GROQ_API_KEY environment variable.";
+    } else if (error.message?.includes("rate limit")) {
+      userMessage = "Rate limit exceeded";
+      errorMessage = "Too many requests. Please try again in a few moments.";
+    } else if (error.message?.includes("network") || error.code === "ENOTFOUND") {
+      userMessage = "Network error";
+      errorMessage = "Unable to connect to Groq API. Please check your internet connection.";
+    }
+
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to process AI request",
-        error: error.message || "Unknown error",
+        message: userMessage,
+        error: errorMessage,
         operations: [],
       },
       { status: 500 }
