@@ -497,7 +497,7 @@ export default function ProjectDetailPage() {
         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <button className="btn-ghost text-xs sm:text-sm whitespace-nowrap" onClick={openEditProject}>✎ Edit</button>
           <button className="btn-danger text-xs sm:text-sm whitespace-nowrap" onClick={() => setDeleteProjectConfirm(true)}>Delete</button>
-          <button className="btn-primary text-xs sm:text-sm whitespace-nowrap" onClick={() => setAddModalOpen(true)}>+ Requirement</button>
+          <button className="btn-primary text-xs sm:text-sm whitespace-nowrap" onClick={() => setAddModalOpen(true)}>+ Task</button>
         </div>
       </div>
       {project.description && <p className="text-secondary text-sm mb-4">{project.description}</p>}
