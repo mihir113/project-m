@@ -233,6 +233,53 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "create_requirements_for_all_team_members",
+      description: "Create a requirement for each team member. Use this when the user asks to create a task/requirement for each or all team members.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "UUID of the project to add requirements to",
+          },
+          name: {
+            type: "string",
+            description: "Base name of the requirement (will be prefixed with team member name)",
+          },
+          description: {
+            type: "string",
+            description: "Optional description",
+          },
+          type: {
+            type: "string",
+            enum: ["recurring", "one-time"],
+            description: "Type of requirement",
+          },
+          recurrence: {
+            type: "string",
+            enum: ["daily", "weekly", "monthly", "quarterly"],
+            description: "Recurrence pattern (required if type is recurring)",
+          },
+          dueDate: {
+            type: "string",
+            description: "Due date in YYYY-MM-DD format",
+          },
+          isPerMemberCheckIn: {
+            type: "boolean",
+            description: "Whether this is a per-member check-in requirement",
+          },
+          templateId: {
+            type: "string",
+            description: "Optional UUID of the check-in template to use",
+          },
+        },
+        required: ["projectId", "name", "type", "dueDate"],
+      },
+    },
+  },
 ] as const;
 
 // ─────────────────────────────────────────────
@@ -240,7 +287,7 @@ const tools = [
 // ─────────────────────────────────────────────
 
 // Helper function to generate human-readable descriptions
-function getToolDescription(toolName: string, args: any): string {
+function getToolDescription(toolName: string, args: any, teamMemberName?: string): string {
   switch (toolName) {
     case "get_team_members":
       return "Fetch all team members from the database";
@@ -249,7 +296,10 @@ function getToolDescription(toolName: string, args: any): string {
     case "create_project":
       return `Create project "${args.name}"${args.category ? ` in category "${args.category}"` : ""}`;
     case "create_requirement":
-      return `Create ${args.type} requirement "${args.name}" due ${args.dueDate}`;
+      const assignedTo = teamMemberName ? ` assigned to ${teamMemberName}` : (args.ownerId ? " (assigned)" : "");
+      return `Create ${args.type} requirement "${args.name}"${assignedTo} due ${args.dueDate}`;
+    case "create_requirements_for_all_team_members":
+      return `Create ${args.type} requirement "${args.name}" for each team member, due ${args.dueDate}`;
     default:
       return `Execute ${toolName}`;
   }
@@ -335,6 +385,38 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
   return { requirement };
 }
 
+async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateRequirementParams, "ownerId">): Promise<any> {
+  // Fetch all team members
+  const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
+
+  // Create a requirement for each team member
+  const createdRequirements = [];
+  for (const member of members) {
+    const [requirement] = await db
+      .insert(requirements)
+      .values({
+        projectId: params.projectId,
+        name: `${params.name} - ${member.nick}`.trim(),
+        description: params.description?.trim() || null,
+        type: params.type,
+        recurrence: params.type === "recurring" ? params.recurrence : null,
+        dueDate: params.dueDate,
+        status: "pending",
+        ownerId: member.id,
+        isPerMemberCheckIn: params.isPerMemberCheckIn || false,
+        templateId: params.templateId || null,
+      })
+      .returning();
+    createdRequirements.push(requirement);
+  }
+
+  return {
+    requirements: createdRequirements,
+    count: createdRequirements.length,
+    teamMembers: members.map(m => ({ id: m.id, nick: m.nick }))
+  };
+}
+
 // ─────────────────────────────────────────────
 // MAIN API HANDLER
 // ─────────────────────────────────────────────
@@ -403,9 +485,12 @@ export async function POST(req: NextRequest) {
           role: "system",
           content: `You are an AI assistant that helps users manage their OpSync database through natural language commands.
 You have access to tools for creating templates, projects, requirements, and querying team members.
-Always use get_team_members first if the user mentions assigning to someone by name.
-When creating requirements, use ISO date format (YYYY-MM-DD) for dueDate.
-Execute operations in logical order (e.g., create project before adding requirements to it).`,
+
+IMPORTANT RULES:
+- When the user says "for each team member" or "for all team members", use create_requirements_for_all_team_members instead of create_requirement
+- Always use get_team_members first if the user mentions assigning to someone by specific name
+- When creating requirements, use ISO date format (YYYY-MM-DD) for dueDate
+- Execute operations in logical order (e.g., create project before adding requirements to it)`,
         },
         {
           role: "user",
@@ -432,26 +517,49 @@ Execute operations in logical order (e.g., create project before adding requirem
 
     // PREVIEW MODE: Return plan without executing
     if (preview) {
-      const plannedOperations = toolCalls.map((toolCall) => {
+      const plannedOperations = [];
+
+      for (const toolCall of toolCalls) {
         let args: any;
         try {
           args = JSON.parse(toolCall.function.arguments);
         } catch {
           args = {};
         }
-        return {
-          tool: toolCall.function.name,
-          arguments: args,
-          description: getToolDescription(toolCall.function.name, args),
-        };
-      });
+
+        // Special handling for create_requirements_for_all_team_members
+        if (toolCall.function.name === "create_requirements_for_all_team_members") {
+          // Fetch team members to show expanded preview
+          const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
+
+          // Show one operation for each team member
+          for (const member of members) {
+            plannedOperations.push({
+              tool: "create_requirement",
+              arguments: {
+                ...args,
+                ownerId: member.id,
+                name: `${args.name} - ${member.nick}`,
+              },
+              description: getToolDescription("create_requirement", args, member.nick),
+              _expandedFrom: "create_requirements_for_all_team_members",
+            });
+          }
+        } else {
+          plannedOperations.push({
+            tool: toolCall.function.name,
+            arguments: args,
+            description: getToolDescription(toolCall.function.name, args),
+          });
+        }
+      }
 
       return NextResponse.json({
         success: true,
         preview: true,
         message: `Found ${plannedOperations.length} operation(s) to execute. Please confirm.`,
         operations: plannedOperations,
-        plan: toolCalls, // Store the plan for execution
+        plan: toolCalls, // Store the original plan for execution
       });
     }
 
@@ -506,6 +614,18 @@ Execute operations in logical order (e.g., create project before adding requirem
               functionArgs.templateId = executionContext.lastTemplate.id;
             }
             result = await executeCreateRequirement(functionArgs);
+            break;
+
+          case "create_requirements_for_all_team_members":
+            // Allow using lastProject.id if projectId is missing
+            if (!functionArgs.projectId && executionContext.lastProject) {
+              functionArgs.projectId = executionContext.lastProject.id;
+            }
+            // Allow using lastTemplate.id if templateId is missing
+            if (!functionArgs.templateId && executionContext.lastTemplate) {
+              functionArgs.templateId = executionContext.lastTemplate.id;
+            }
+            result = await executeCreateRequirementsForAllTeamMembers(functionArgs);
             break;
 
           default:
