@@ -514,14 +514,19 @@ export default function ProjectDetailPage() {
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ backgroundColor: req.status === "completed" ? "#34d399" : req.status === "overdue" ? "#f87171" : "#fbbf24" }} />
                   <div className="flex-1 min-w-0">
-                    {/* Title and badges */}
-                    <div className="flex items-start gap-2 flex-wrap mb-1">
-                      <p className="text-primary text-sm font-medium">{req.name}</p>
-                      <span className={`badge-${req.status}`}>{req.status}</span>
-                      {req.isPerMemberCheckIn && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(79,111,245,0.12)", color: "#4f6ff5" }}>Per-member</span>}
-                      {req.templateId && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(52,211,153,0.12)", color: "#34d399" }}>Has template</span>}
-                      {req.type === "recurring" && req.recurrence && <span className="text-xs text-muted">↻ {req.recurrence}</span>}
+                    {/* Title with status badge on the right */}
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <p className="text-primary text-sm font-medium flex-1">{req.name}</p>
+                      <span className={`badge-${req.status} flex-shrink-0`}>{req.status}</span>
                     </div>
+                    {/* Other badges */}
+                    {(req.isPerMemberCheckIn || req.templateId || (req.type === "recurring" && req.recurrence)) && (
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        {req.isPerMemberCheckIn && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(79,111,245,0.12)", color: "#4f6ff5" }}>Per-member</span>}
+                        {req.templateId && <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(52,211,153,0.12)", color: "#34d399" }}>Has template</span>}
+                        {req.type === "recurring" && req.recurrence && <span className="text-xs text-muted">↻ {req.recurrence}</span>}
+                      </div>
+                    )}
                     {/* Due date and owner */}
                     <div className="flex items-center gap-3 text-xs text-muted flex-wrap">
                       <span>Due {formatDate(req.dueDate)}</span>
