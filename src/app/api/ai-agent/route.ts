@@ -291,6 +291,11 @@ const tools = [
 // TOOL IMPLEMENTATION FUNCTIONS
 // ─────────────────────────────────────────────
 
+// Helper function to validate UUID format
+function isValidUUID(str: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+}
+
 // Helper function to generate human-readable descriptions
 function getToolDescription(toolName: string, args: any, teamMemberName?: string): string {
   switch (toolName) {
@@ -338,7 +343,7 @@ async function executeCreateTemplate(params: CreateTemplateParams): Promise<any>
     .insert(checkInTemplates)
     .values({
       name: params.name.trim(),
-      description: params.description?.trim() || null,
+      description: params.description ? params.description.trim() : null,
     })
     .returning();
 
@@ -377,10 +382,10 @@ async function executeCreateProject(params: CreateProjectParams): Promise<any> {
     .insert(projects)
     .values({
       name: params.name.trim(),
-      description: params.description?.trim() || null,
+      description: params.description ? params.description.trim() : null,
       status: params.status || "active",
       color: params.color || "#4f6ff5",
-      category: params.category?.trim() || null,
+      category: params.category ? params.category.trim() : null,
     })
     .returning();
 
@@ -388,12 +393,17 @@ async function executeCreateProject(params: CreateProjectParams): Promise<any> {
 }
 
 async function executeCreateRequirement(params: CreateRequirementParams): Promise<any> {
+  // Validate projectId is a valid UUID
+  if (!params.projectId || !isValidUUID(params.projectId)) {
+    throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
+  }
+
   const [requirement] = await db
     .insert(requirements)
     .values({
       projectId: params.projectId,
       name: params.name.trim(),
-      description: params.description?.trim() || null,
+      description: params.description ? params.description.trim() : null,
       type: params.type,
       recurrence: params.type === "recurring" ? params.recurrence : null,
       dueDate: params.dueDate,
@@ -408,8 +418,17 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
 }
 
 async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateRequirementParams, "ownerId">): Promise<any> {
+  // Validate projectId is a valid UUID
+  if (!params.projectId || !isValidUUID(params.projectId)) {
+    throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
+  }
+
   // Fetch all team members
   const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
+
+  if (members.length === 0) {
+    throw new Error("No team members found in database");
+  }
 
   // Create a requirement for each team member
   const createdRequirements = [];
@@ -419,7 +438,7 @@ async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateReq
       .values({
         projectId: params.projectId,
         name: `${params.name} - ${member.nick}`.trim(),
-        description: params.description?.trim() || null,
+        description: params.description ? params.description.trim() : null,
         type: params.type,
         recurrence: params.type === "recurring" ? params.recurrence : null,
         dueDate: params.dueDate,
@@ -637,24 +656,24 @@ IMPORTANT RULES:
             break;
 
           case "create_requirement":
-            // Allow using lastProject.id if projectId is missing
-            if (!functionArgs.projectId && executionContext.lastProject) {
+            // Allow using lastProject.id if projectId is missing or invalid
+            if ((!functionArgs.projectId || !isValidUUID(functionArgs.projectId)) && executionContext.lastProject) {
               functionArgs.projectId = executionContext.lastProject.id;
             }
-            // Allow using lastTemplate.id if templateId is missing
-            if (!functionArgs.templateId && executionContext.lastTemplate) {
+            // Allow using lastTemplate.id if templateId is missing or invalid
+            if ((!functionArgs.templateId || !isValidUUID(functionArgs.templateId)) && executionContext.lastTemplate) {
               functionArgs.templateId = executionContext.lastTemplate.id;
             }
             result = await executeCreateRequirement(functionArgs);
             break;
 
           case "create_requirements_for_all_team_members":
-            // Allow using lastProject.id if projectId is missing
-            if (!functionArgs.projectId && executionContext.lastProject) {
+            // Allow using lastProject.id if projectId is missing or invalid
+            if ((!functionArgs.projectId || !isValidUUID(functionArgs.projectId)) && executionContext.lastProject) {
               functionArgs.projectId = executionContext.lastProject.id;
             }
-            // Allow using lastTemplate.id if templateId is missing
-            if (!functionArgs.templateId && executionContext.lastTemplate) {
+            // Allow using lastTemplate.id if templateId is missing or invalid
+            if ((!functionArgs.templateId || !isValidUUID(functionArgs.templateId)) && executionContext.lastTemplate) {
               functionArgs.templateId = executionContext.lastTemplate.id;
             }
             result = await executeCreateRequirementsForAllTeamMembers(functionArgs);
@@ -736,6 +755,27 @@ IMPORTANT RULES:
     } else if (error.message?.includes("network") || error.code === "ENOTFOUND") {
       userMessage = "Network error";
       errorMessage = "Unable to connect to Groq API. Please check your internet connection.";
+    }
+
+    // Log the error to database
+    const executionTime = Date.now() - startTime;
+    try {
+      const body = await req.json();
+      await db.insert(aiExecutionLogs).values({
+        prompt: body.prompt || "Unknown prompt",
+        success: false,
+        operationsCount: 0,
+        successCount: 0,
+        errorCount: 1,
+        operations: JSON.stringify([{
+          tool: "system",
+          status: "error",
+          error: errorMessage,
+        }]),
+        executionTimeMs: executionTime,
+      });
+    } catch (logError) {
+      console.error("Failed to log AI execution error:", logError);
     }
 
     return NextResponse.json(

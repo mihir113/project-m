@@ -30,8 +30,18 @@ export function CommandPalette() {
       }, 3000);
     },
     onError: (error) => {
-      showToast(error.message, "error");
+      // Show error in execution result modal instead of just a toast
+      setExecutionResult({
+        success: false,
+        message: error.message || "Execution failed",
+        operations: [{
+          tool: "system",
+          status: "error",
+          error: error.message || "Unknown error occurred",
+        }],
+      });
       setShowConfirmation(false);
+      showToast(error.message, "error");
     },
   });
 
@@ -216,6 +226,14 @@ export function CommandPalette() {
             </p>
           </div>
 
+          {/* Show error details if present */}
+          {!executionResult?.success && (executionResult as any)?.error && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-xs font-medium text-red-400 mb-1">Error Details:</p>
+              <p className="text-xs text-red-300">{(executionResult as any).error}</p>
+            </div>
+          )}
+
           {executionResult?.operations && executionResult.operations.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs text-muted">Operations executed:</p>
@@ -261,7 +279,23 @@ export function CommandPalette() {
             </div>
           )}
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {!executionResult?.success && (
+              <a
+                href="/ai"
+                className="btn-ghost"
+                onClick={() => setExecutionResult(null)}
+              >
+                View AI Assistant
+              </a>
+            )}
+            <a
+              href="/ai-logs"
+              className="btn-ghost"
+              onClick={() => setExecutionResult(null)}
+            >
+              View Logs
+            </a>
             <button
               className="btn-primary"
               onClick={() => setExecutionResult(null)}
