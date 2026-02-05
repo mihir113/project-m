@@ -12,9 +12,8 @@ const NAV_ITEMS = [
   { label: "Team", href: "/team", icon: "⦿" },
   { label: "Templates", href: "/templates", icon: "◈" },
   { label: "Automations", href: "/automations", icon: "⚙" },
-  { label: "Reports", href: "/reports", icon: "📊" },
-  { label: "AI Assistant", href: "/ai", icon: "✦" },
   { label: "Import", href: "/import", icon: "↓" },
+  { label: "AI Assistant", href: "/ai", icon: "✦" },
 ];
 
 export function Sidebar() {
