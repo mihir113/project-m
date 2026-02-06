@@ -6,6 +6,7 @@ import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
 import { OwnerChip, UnassignedChip } from "@/components/OwnerChip";
 import { generateCycleLabel } from "@/types";
+import { buildCategoryColorMap, getCategoryColor } from "@/lib/categoryColors";
 
 // ─── Types ───
 interface Project { id: string; name: string; description: string | null; status: string; color: string; category: string | null; }
@@ -100,8 +101,9 @@ export default function ProjectDetailPage() {
 
   // ── Project Edit/Delete ──
   const [editProjectModalOpen, setEditProjectModalOpen] = useState(false);
-  const [projectForm, setProjectForm] = useState({ name: "", description: "", status: "active", color: "#4f6ff5", category: "" });
+  const [projectForm, setProjectForm] = useState({ name: "", description: "", status: "active", category: "" });
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
   const [savingProject, setSavingProject] = useState(false);
@@ -126,6 +128,7 @@ export default function ProjectDetailPage() {
 
       const uniqueCats = Array.from(new Set(allProjects.map((p: Project) => p.category).filter(Boolean))) as string[];
       setCategories(uniqueCats.sort());
+      setCategoryColorMap(buildCategoryColorMap(allProjects));
       setProject(proj);
       setRequirements(reqJson.data || []);
       setTeamMembers(teamJson.data || []);
@@ -393,7 +396,6 @@ export default function ProjectDetailPage() {
       name: project.name,
       description: project.description || "",
       status: project.status,
-      color: project.color,
       category: project.category || "",
     });
     setShowNewCategory(false);
@@ -431,7 +433,7 @@ export default function ProjectDetailPage() {
           name: projectForm.name,
           description: projectForm.description || null,
           status: projectForm.status,
-          color: projectForm.color,
+          color: getCategoryColor(projectForm.category || null, categoryColorMap),
           category: projectForm.category || null,
         }),
       });
@@ -490,7 +492,7 @@ export default function ProjectDetailPage() {
       {/* Header - responsive layout */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="flex items-start sm:items-center gap-3 flex-wrap min-w-0">
-          <div className="w-4 h-4 rounded-full flex-shrink-0 mt-1 sm:mt-0" style={{ backgroundColor: project.color }} />
+          <div className="w-4 h-4 rounded-full flex-shrink-0 mt-1 sm:mt-0" style={{ backgroundColor: getCategoryColor(project.category, categoryColorMap) }} />
           <h1 className="text-xl sm:text-2xl font-semibold text-primary break-words">{project.name}</h1>
           <span className={`badge-${project.status === "active" ? "completed" : project.status === "on-hold" ? "pending" : "completed"}`}>{project.status}</span>
         </div>
@@ -509,7 +511,7 @@ export default function ProjectDetailPage() {
           <span>{pct}%</span>
         </div>
         <div className="w-full h-2 rounded-full" style={{ backgroundColor: "#1e2130" }}>
-          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: project.color }} />
+          <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: getCategoryColor(project.category, categoryColorMap) }} />
         </div>
       </div>
 
@@ -1001,22 +1003,6 @@ export default function ProjectDetailPage() {
               <option value="on-hold">On Hold</option>
               <option value="completed">Completed</option>
             </select>
-          </div>
-          <div>
-            <label className="text-xs text-muted mb-1 block">Color</label>
-            <div className="flex flex-wrap gap-2">
-              {["#4f6ff5", "#e879a0", "#a78bfa", "#60a5fa", "#34d399", "#fbbf24", "#fb923c", "#f472b6", "#38bdf8", "#4ade80", "#c084fc", "#fb7185"].map((c) => (
-                <button
-                  key={c}
-                  onClick={() => setProjectForm({ ...projectForm, color: c })}
-                  className="w-8 h-8 rounded-full border-2 transition-transform hover:scale-110"
-                  style={{
-                    backgroundColor: c,
-                    borderColor: projectForm.color === c ? "#fff" : "transparent",
-                  }}
-                />
-              ))}
-            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button className="btn-ghost" onClick={() => setEditProjectModalOpen(false)}>Cancel</button>

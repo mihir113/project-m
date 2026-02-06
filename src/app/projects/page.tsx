@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
+import { buildCategoryColorMap, getCategoryColor } from "@/lib/categoryColors";
 
 interface Project {
   id: string;
@@ -16,12 +17,6 @@ interface Project {
   totalRequirements?: number;
   completedRequirements?: number;
 }
-
-const COLOR_OPTIONS = [
-  "#4f6ff5", "#e879a0", "#a78bfa", "#60a5fa",
-  "#34d399", "#fbbf24", "#fb923c", "#f472b6",
-  "#38bdf8", "#4ade80", "#c084fc", "#fb7185",
-];
 
 const STATUS_OPTIONS = ["active", "on-hold", "completed"];
 
@@ -35,22 +30,26 @@ export default function ProjectsPage() {
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
-  const [form, setForm] = useState({ 
-    name: "", 
-    description: "", 
-    status: "active", 
-    color: "#4f6ff5",
-    category: "" 
+  const [form, setForm] = useState({
+    name: "",
+    description: "",
+    status: "active",
+    category: ""
   });
   const [saving, setSaving] = useState(false);
 
   // Category management
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<Project | null>(null);
+
+  // Search & filter state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const fetchProjects = async () => {
     try {
@@ -59,11 +58,12 @@ export default function ProjectsPage() {
       const projectsData = json.data || [];
       setProjects(projectsData);
       
-      // Extract unique categories
+      // Extract unique categories and build color map
       const uniqueCategories = Array.from(
         new Set(projectsData.map((p: Project) => p.category).filter(Boolean))
       ) as string[];
       setCategories(uniqueCategories.sort());
+      setCategoryColorMap(buildCategoryColorMap(projectsData));
     } catch {
       showToast("Failed to load projects", "error");
     } finally {
@@ -76,7 +76,7 @@ export default function ProjectsPage() {
   // ── Open modal for Create or Edit ──
   const openCreate = () => {
     setEditingProject(null);
-    setForm({ name: "", description: "", status: "active", color: "#4f6ff5", category: "" });
+    setForm({ name: "", description: "", status: "active", category: "" });
     setShowNewCategory(false);
     setNewCategoryInput("");
     setModalOpen(true);
@@ -88,7 +88,6 @@ export default function ProjectsPage() {
       name: project.name,
       description: project.description || "",
       status: project.status,
-      color: project.color,
       category: project.category || "",
     });
     setShowNewCategory(false);
@@ -123,6 +122,7 @@ export default function ProjectsPage() {
       const payload = {
         ...form,
         category: form.category || null,
+        color: getCategoryColor(form.category || null, categoryColorMap),
       };
 
       if (editingProject) {
@@ -167,10 +167,20 @@ export default function ProjectsPage() {
   };
 
   // ───── RENDER ─────
-  // Filter projects based on URL parameter
-  const filteredProjects = statusFromUrl
-    ? projects.filter((p) => p.status === statusFromUrl)
-    : projects;
+  // Filter projects based on URL parameter, search query, and category
+  const filteredProjects = projects.filter((p) => {
+    if (statusFromUrl && p.status !== statusFromUrl) return false;
+    if (selectedCategory === "__uncategorized__" && p.category) return false;
+    if (selectedCategory && selectedCategory !== "__uncategorized__" && p.category !== selectedCategory) return false;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesName = p.name.toLowerCase().includes(q);
+      const matchesDesc = p.description?.toLowerCase().includes(q);
+      const matchesCat = p.category?.toLowerCase().includes(q);
+      if (!matchesName && !matchesDesc && !matchesCat) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="animate-fadeIn">
@@ -180,18 +190,109 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-semibold text-primary">
             Projects{statusFromUrl ? ` - ${statusFromUrl.charAt(0).toUpperCase() + statusFromUrl.slice(1)}` : ""}
           </h1>
-          <p className="text-secondary text-sm mt-1">{filteredProjects.length} project{filteredProjects.length !== 1 ? "s" : ""}</p>
+          <p className="text-secondary text-sm mt-1">
+            {filteredProjects.length === projects.length
+              ? `${projects.length} project${projects.length !== 1 ? "s" : ""}`
+              : `${filteredProjects.length} of ${projects.length} project${projects.length !== 1 ? "s" : ""}`}
+          </p>
         </div>
         <button className="btn-primary" onClick={openCreate}>+ New Project</button>
       </div>
+
+      {/* Search & Category Filters */}
+      {!loading && projects.length > 0 && (
+        <div className="mb-5 space-y-3">
+          {/* Search box */}
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              className="input-field pl-10"
+              placeholder="Search projects by name, description, or category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-primary transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Category filter chips */}
+          {categories.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedCategory(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                  selectedCategory === null
+                    ? "bg-[#4f6ff5] text-white"
+                    : "bg-tertiary text-secondary hover:text-primary"
+                }`}
+              >
+                All
+              </button>
+              {categories.map((cat) => {
+                const catColor = getCategoryColor(cat, categoryColorMap);
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                      selectedCategory === cat
+                        ? "text-white"
+                        : "bg-tertiary text-secondary hover:text-primary"
+                    }`}
+                    style={selectedCategory === cat ? { backgroundColor: catColor } : undefined}
+                  >
+                    <span
+                      className="inline-block w-2 h-2 rounded-full mr-1.5"
+                      style={{ backgroundColor: catColor }}
+                    />
+                    {cat}
+                  </button>
+                );
+              })}
+              {projects.some(p => !p.category) && (
+                <button
+                  onClick={() => setSelectedCategory(selectedCategory === "__uncategorized__" ? null : "__uncategorized__")}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    selectedCategory === "__uncategorized__"
+                      ? "bg-[#4f6ff5] text-white"
+                      : "bg-tertiary text-secondary hover:text-primary"
+                  }`}
+                >
+                  Uncategorized
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Project Grid */}
       {loading ? (
         <p className="text-muted text-sm py-12 text-center">Loading...</p>
       ) : filteredProjects.length === 0 ? (
         <div className="card p-12 text-center">
-          <p className="text-muted text-sm mb-3">No {statusFromUrl || ""} projects yet.</p>
-          <button className="btn-primary" onClick={openCreate}>Create your first project</button>
+          {(searchQuery || selectedCategory) ? (
+            <>
+              <p className="text-muted text-sm mb-3">No projects match your filters.</p>
+              <button className="btn-ghost" onClick={() => { setSearchQuery(""); setSelectedCategory(null); }}>Clear filters</button>
+            </>
+          ) : (
+            <>
+              <p className="text-muted text-sm mb-3">No {statusFromUrl || ""} projects yet.</p>
+              <button className="btn-primary" onClick={openCreate}>Create your first project</button>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -205,7 +306,7 @@ export default function ProjectsPage() {
                 key={p.id}
                 href={`/projects/${p.id}`}
                 className="card p-5 flex flex-col gap-3 hover:shadow-lg transition-shadow cursor-pointer"
-                style={{ borderTop: `3px solid ${p.color}`, textDecoration: "none" }}
+                style={{ borderTop: `3px solid ${getCategoryColor(p.category, categoryColorMap)}`, textDecoration: "none" }}
               >
                 {/* Top: name + status */}
                 <div className="flex items-start justify-between">
@@ -234,7 +335,7 @@ export default function ProjectsPage() {
                     <span>{pct}%</span>
                   </div>
                   <div className="w-full h-1.5 rounded-full bg-tertiary">
-                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: p.color }} />
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: getCategoryColor(p.category, categoryColorMap) }} />
                   </div>
                 </div>
               </Link>
@@ -319,24 +420,6 @@ export default function ProjectsPage() {
                 <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}</option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted mb-2 block">Accent Color</label>
-            <div className="flex flex-wrap gap-2">
-              {COLOR_OPTIONS.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setForm({ ...form, color })}
-                  className="w-7 h-7 rounded-full transition-transform hover:scale-110"
-                  style={{
-                    backgroundColor: color,
-                    outline: form.color === color ? `3px solid ${color}` : "none",
-                    outlineOffset: "2px",
-                  }}
-                />
-              ))}
-            </div>
           </div>
 
           {/* Footer */}

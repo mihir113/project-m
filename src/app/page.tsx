@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
+import { buildCategoryColorMap, getCategoryColor } from "@/lib/categoryColors";
 
 interface ProjectWithCounts {
   id: string;
@@ -15,12 +16,6 @@ interface ProjectWithCounts {
   totalRequirements: number;
   completedRequirements: number;
 }
-
-const COLOR_OPTIONS = [
-  "#4f6ff5", "#e879a0", "#a78bfa", "#60a5fa",
-  "#34d399", "#fbbf24", "#fb923c", "#f472b6",
-  "#38bdf8", "#4ade80", "#c084fc", "#fb7185",
-];
 
 const STATUS_OPTIONS = ["active", "on-hold", "completed"];
 
@@ -37,13 +32,13 @@ export default function DashboardPage() {
     name: "",
     description: "",
     status: "active",
-    color: "#4f6ff5",
     category: "",
   });
   const [saving, setSaving] = useState(false);
 
   // Category management
   const [categories, setCategories] = useState<string[]>([]);
+  const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
 
@@ -84,11 +79,12 @@ export default function DashboardPage() {
       const projectsData = json.data || [];
       setProjects(projectsData);
 
-      // Extract unique categories
+      // Extract unique categories and build color map
       const uniqueCategories = Array.from(
         new Set(projectsData.map((p: ProjectWithCounts) => p.category).filter(Boolean))
       ) as string[];
       setCategories(uniqueCategories.sort());
+      setCategoryColorMap(buildCategoryColorMap(projectsData));
     } catch {
       // silent fail
     } finally {
@@ -103,7 +99,7 @@ export default function DashboardPage() {
   // ── Open modal for Create or Edit ──
   const openCreate = () => {
     setEditingProject(null);
-    setForm({ name: "", description: "", status: "active", color: "#4f6ff5", category: "" });
+    setForm({ name: "", description: "", status: "active", category: "" });
     setShowNewCategory(false);
     setNewCategoryInput("");
     setModalOpen(true);
@@ -115,7 +111,6 @@ export default function DashboardPage() {
       name: project.name,
       description: project.description || "",
       status: project.status,
-      color: project.color,
       category: project.category || "",
     });
     setShowNewCategory(false);
@@ -147,7 +142,7 @@ export default function DashboardPage() {
     if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const payload = { ...form, category: form.category || null };
+      const payload = { ...form, category: form.category || null, color: getCategoryColor(form.category || null, categoryColorMap) };
 
       if (editingProject) {
         const res = await fetch("/api/projects", {
@@ -304,7 +299,7 @@ export default function DashboardPage() {
                       <div className="flex items-start gap-3 mb-3">
                         <div
                           className="w-3 h-3 rounded-full flex-shrink-0 mt-1"
-                          style={{ backgroundColor: project.color }}
+                          style={{ backgroundColor: getCategoryColor(project.category, categoryColorMap) }}
                         />
                         <div className="flex-1 min-w-0">
                           <h4 className="text-sm font-semibold text-primary mb-1 break-words">
@@ -343,7 +338,7 @@ export default function DashboardPage() {
                                   ? Math.round((project.completedRequirements / project.totalRequirements) * 100)
                                   : 0
                               }%`,
-                              backgroundColor: project.color,
+                              backgroundColor: getCategoryColor(project.category, categoryColorMap),
                             }}
                           />
                         </div>
@@ -395,15 +390,6 @@ export default function DashboardPage() {
             <select className="input-field" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
               {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1).replace("-", " ")}</option>)}
             </select>
-          </div>
-          <div>
-            <label className="text-xs text-muted mb-2 block">Accent Color</label>
-            <div className="flex flex-wrap gap-2">
-              {COLOR_OPTIONS.map((color) => (
-                <button key={color} onClick={() => setForm({ ...form, color })} className="w-7 h-7 rounded-full transition-transform hover:scale-110"
-                  style={{ backgroundColor: color, outline: form.color === color ? `3px solid ${color}` : "none", outlineOffset: "2px" }} />
-              ))}
-            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button className="btn-ghost" onClick={() => setModalOpen(false)}>Cancel</button>

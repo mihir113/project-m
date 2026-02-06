@@ -10,7 +10,7 @@ import {
   templateGoals,
   aiExecutionLogs,
 } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, isNull } from "drizzle-orm";
 import { aiAgentRateLimiter, getClientIP } from "@/lib/rateLimiter";
 
 // ─────────────────────────────────────────────
@@ -190,6 +190,66 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "get_projects",
+      description: "Get existing projects from the database. Use this to find projects, especially uncategorized ones. Always call this before updating projects.",
+      parameters: {
+        type: "object",
+        properties: {
+          uncategorizedOnly: {
+            type: "boolean",
+            description: "If true, only return projects that have no category assigned",
+          },
+          status: {
+            type: "string",
+            enum: ["active", "on-hold", "completed"],
+            description: "Optional filter by project status",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_project",
+      description: "Update an existing project. Use this to change a project's category, name, description, status, or color. Use this when the user wants to categorize, recategorize, or modify existing projects.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "UUID of the project to update",
+          },
+          name: {
+            type: "string",
+            description: "New name for the project",
+          },
+          description: {
+            type: "string",
+            description: "New description for the project",
+          },
+          status: {
+            type: "string",
+            enum: ["active", "on-hold", "completed"],
+            description: "New status for the project",
+          },
+          color: {
+            type: "string",
+            description: "New hex color code for the project",
+          },
+          category: {
+            type: "string",
+            description: "New category for organizing the project (e.g., 'Engineering', 'Operations', 'Planning')",
+          },
+        },
+        required: ["projectId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "create_requirement",
       description: "Create a new requirement (task) for a project.",
       parameters: {
@@ -289,6 +349,177 @@ const tools = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "delete_project",
+      description: "Delete a project and all its associated requirements from the database.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "UUID of the project to delete",
+          },
+        },
+        required: ["projectId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_requirements",
+      description: "Get requirements (tasks) from the database with optional filters. Use this to find existing requirements by project, status, or owner.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "Optional UUID of the project to filter requirements by",
+          },
+          status: {
+            type: "string",
+            enum: ["pending", "completed", "overdue"],
+            description: "Optional filter by requirement status",
+          },
+          ownerId: {
+            type: "string",
+            description: "Optional UUID of the team member to filter requirements by",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_requirement",
+      description: "Update an existing requirement (task). Use this to change a requirement's name, description, status, type, due date, owner, or other fields.",
+      parameters: {
+        type: "object",
+        properties: {
+          requirementId: {
+            type: "string",
+            description: "UUID of the requirement to update",
+          },
+          name: {
+            type: "string",
+            description: "New name for the requirement",
+          },
+          description: {
+            type: "string",
+            description: "New description for the requirement",
+          },
+          type: {
+            type: "string",
+            enum: ["recurring", "one-time"],
+            description: "New type for the requirement",
+          },
+          recurrence: {
+            type: "string",
+            enum: ["daily", "weekly", "monthly", "quarterly"],
+            description: "New recurrence pattern",
+          },
+          dueDate: {
+            type: "string",
+            description: "New due date in YYYY-MM-DD format",
+          },
+          status: {
+            type: "string",
+            enum: ["pending", "completed", "overdue"],
+            description: "New status for the requirement",
+          },
+          ownerId: {
+            type: "string",
+            description: "UUID of the team member to assign the requirement to",
+          },
+        },
+        required: ["requirementId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_requirement",
+      description: "Delete a requirement (task) from the database.",
+      parameters: {
+        type: "object",
+        properties: {
+          requirementId: {
+            type: "string",
+            description: "UUID of the requirement to delete",
+          },
+        },
+        required: ["requirementId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_team_member",
+      description: "Add a new team member to the database.",
+      parameters: {
+        type: "object",
+        properties: {
+          nick: {
+            type: "string",
+            description: "The nickname/name of the team member (must be unique)",
+          },
+          role: {
+            type: "string",
+            description: "The role of the team member (e.g., 'Engineer', 'Manager', 'Direct', 'COE', 'Contractor')",
+          },
+        },
+        required: ["nick", "role"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_team_member",
+      description: "Update an existing team member's nick or role.",
+      parameters: {
+        type: "object",
+        properties: {
+          memberId: {
+            type: "string",
+            description: "UUID of the team member to update",
+          },
+          nick: {
+            type: "string",
+            description: "New nickname for the team member",
+          },
+          role: {
+            type: "string",
+            description: "New role for the team member (e.g., 'Engineer', 'Manager', 'Direct', 'COE', 'Contractor')",
+          },
+        },
+        required: ["memberId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_team_member",
+      description: "Remove a team member from the database.",
+      parameters: {
+        type: "object",
+        properties: {
+          memberId: {
+            type: "string",
+            description: "UUID of the team member to delete",
+          },
+        },
+        required: ["memberId"],
+      },
+    },
+  },
 ] as const;
 
 // ─────────────────────────────────────────────
@@ -311,11 +542,54 @@ function getToolDescription(toolName: string, args: any, teamMemberName?: string
       return `Create template "${args.name}"${args.goalAreas ? ` with ${args.goalAreas.length} goal area(s)` : ""}`;
     case "create_project":
       return `Create project "${args.name}"${args.category ? ` in category "${args.category}"` : ""}`;
+    case "get_projects":
+      return args.uncategorizedOnly
+        ? "Fetch uncategorized projects from the database"
+        : args.status
+          ? `Fetch projects with status "${args.status}"`
+          : "Fetch all projects from the database";
+    case "update_project":
+      const updates = [];
+      if (args.category) updates.push(`category to "${args.category}"`);
+      if (args.name) updates.push(`name to "${args.name}"`);
+      if (args.status) updates.push(`status to "${args.status}"`);
+      if (args.color) updates.push(`color to "${args.color}"`);
+      if (args.description) updates.push(`description`);
+      return `Update project ${args.projectId}: set ${updates.join(", ") || "fields"}`;
     case "create_requirement":
       const assignedTo = teamMemberName ? ` assigned to ${teamMemberName}` : (args.ownerId ? " (assigned)" : "");
       return `Create ${args.type} requirement "${args.name}"${assignedTo} due ${args.dueDate}`;
     case "create_requirements_for_all_team_members":
       return `Create ${args.type} requirement "${args.name}" for each team member, due ${args.dueDate}`;
+    case "delete_project":
+      return `Delete project ${args.projectId} and all its requirements`;
+    case "get_requirements":
+      const filters = [];
+      if (args.projectId) filters.push(`project ${args.projectId}`);
+      if (args.status) filters.push(`status "${args.status}"`);
+      if (args.ownerId) filters.push(`owner ${args.ownerId}`);
+      return filters.length > 0
+        ? `Fetch requirements filtered by ${filters.join(", ")}`
+        : "Fetch all requirements from the database";
+    case "update_requirement":
+      const reqUpdates = [];
+      if (args.name) reqUpdates.push(`name to "${args.name}"`);
+      if (args.status) reqUpdates.push(`status to "${args.status}"`);
+      if (args.dueDate) reqUpdates.push(`due date to ${args.dueDate}`);
+      if (args.ownerId) reqUpdates.push(`owner`);
+      if (args.type) reqUpdates.push(`type to "${args.type}"`);
+      return `Update requirement ${args.requirementId}: set ${reqUpdates.join(", ") || "fields"}`;
+    case "delete_requirement":
+      return `Delete requirement ${args.requirementId}`;
+    case "create_team_member":
+      return `Add team member "${args.nick}" with role "${args.role}"`;
+    case "update_team_member":
+      const memberUpdates = [];
+      if (args.nick) memberUpdates.push(`nick to "${args.nick}"`);
+      if (args.role) memberUpdates.push(`role to "${args.role}"`);
+      return `Update team member ${args.memberId}: set ${memberUpdates.join(", ") || "fields"}`;
+    case "delete_team_member":
+      return `Remove team member ${args.memberId}`;
     default:
       return `Execute ${toolName}`;
   }
@@ -412,6 +686,206 @@ async function executeCreateProject(params: CreateProjectParams): Promise<any> {
     .returning();
 
   return { project };
+}
+
+async function executeGetProjects(params?: { uncategorizedOnly?: boolean; status?: string }): Promise<any> {
+  let query = db.select().from(projects);
+
+  const conditions = [];
+  if (params?.uncategorizedOnly) {
+    conditions.push(isNull(projects.category));
+  }
+  if (params?.status) {
+    conditions.push(eq(projects.status, params.status as any));
+  }
+
+  const results = conditions.length > 0
+    ? await query.where(conditions.length === 1 ? conditions[0] : sql`${conditions[0]} AND ${conditions[1]}`)
+    : await query;
+
+  return {
+    projects: results,
+    count: results.length,
+    filter: {
+      uncategorizedOnly: params?.uncategorizedOnly || false,
+      status: params?.status || null,
+    },
+  };
+}
+
+async function executeUpdateProject(params: { projectId: string; name?: string; description?: string; status?: string; color?: string; category?: string }): Promise<any> {
+  if (!params.projectId || !isValidUUID(params.projectId)) {
+    throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
+  }
+
+  const updateData: Record<string, any> = {};
+  if (params.name !== undefined) updateData.name = params.name.trim();
+  if (params.description !== undefined) updateData.description = params.description.trim();
+  if (params.status !== undefined) updateData.status = params.status;
+  if (params.color !== undefined) updateData.color = params.color;
+  if (params.category !== undefined) updateData.category = params.category.trim();
+
+  if (Object.keys(updateData).length === 0) {
+    throw new Error("No fields to update. Provide at least one field (name, description, status, color, or category).");
+  }
+
+  const [updated] = await db
+    .update(projects)
+    .set(updateData)
+    .where(eq(projects.id, params.projectId))
+    .returning();
+
+  if (!updated) {
+    throw new Error(`Project with ID "${params.projectId}" not found.`);
+  }
+
+  return { project: updated };
+}
+
+async function executeDeleteProject(params: { projectId: string }): Promise<any> {
+  if (!params.projectId || !isValidUUID(params.projectId)) {
+    throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
+  }
+
+  // Delete associated requirements first, then the project
+  await db.delete(requirements).where(eq(requirements.projectId, params.projectId));
+  await db.delete(projects).where(eq(projects.id, params.projectId));
+
+  return { deleted: true, projectId: params.projectId };
+}
+
+async function executeGetRequirements(params?: { projectId?: string; status?: string; ownerId?: string }): Promise<any> {
+  const conditions: any[] = [];
+  if (params?.projectId) {
+    if (!isValidUUID(params.projectId)) {
+      throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
+    }
+    conditions.push(eq(requirements.projectId, params.projectId));
+  }
+  if (params?.status) {
+    conditions.push(eq(requirements.status, params.status as any));
+  }
+  if (params?.ownerId) {
+    if (!isValidUUID(params.ownerId)) {
+      throw new Error(`Invalid owner ID: "${params.ownerId}". Expected a valid UUID format.`);
+    }
+    conditions.push(eq(requirements.ownerId, params.ownerId));
+  }
+
+  const rows = await db
+    .select({
+      id: requirements.id,
+      name: requirements.name,
+      description: requirements.description,
+      type: requirements.type,
+      recurrence: requirements.recurrence,
+      dueDate: requirements.dueDate,
+      status: requirements.status,
+      projectId: requirements.projectId,
+      ownerId: requirements.ownerId,
+      ownerNick: teamMembers.nick,
+      projectName: projects.name,
+    })
+    .from(requirements)
+    .leftJoin(teamMembers, eq(teamMembers.id, requirements.ownerId))
+    .leftJoin(projects, eq(projects.id, requirements.projectId))
+    .where(conditions.length > 0 ? sql.join(conditions, sql` AND `) : undefined)
+    .orderBy(requirements.createdAt);
+
+  return {
+    requirements: rows,
+    count: rows.length,
+  };
+}
+
+async function executeUpdateRequirement(params: { requirementId: string; name?: string; description?: string; type?: string; recurrence?: string; dueDate?: string; status?: string; ownerId?: string }): Promise<any> {
+  if (!params.requirementId || !isValidUUID(params.requirementId)) {
+    throw new Error(`Invalid requirement ID: "${params.requirementId}". Expected a valid UUID format.`);
+  }
+
+  const updateData: Record<string, any> = {};
+  if (params.name !== undefined) updateData.name = params.name.trim();
+  if (params.description !== undefined) updateData.description = params.description.trim();
+  if (params.type !== undefined) updateData.type = params.type;
+  if (params.recurrence !== undefined) updateData.recurrence = params.recurrence;
+  if (params.dueDate !== undefined) updateData.dueDate = params.dueDate;
+  if (params.status !== undefined) updateData.status = params.status;
+  if (params.ownerId !== undefined) updateData.ownerId = params.ownerId || null;
+
+  if (Object.keys(updateData).length === 0) {
+    throw new Error("No fields to update.");
+  }
+
+  const [updated] = await db
+    .update(requirements)
+    .set(updateData)
+    .where(eq(requirements.id, params.requirementId))
+    .returning();
+
+  if (!updated) {
+    throw new Error(`Requirement with ID "${params.requirementId}" not found.`);
+  }
+
+  return { requirement: updated };
+}
+
+async function executeDeleteRequirement(params: { requirementId: string }): Promise<any> {
+  if (!params.requirementId || !isValidUUID(params.requirementId)) {
+    throw new Error(`Invalid requirement ID: "${params.requirementId}". Expected a valid UUID format.`);
+  }
+
+  await db.delete(requirements).where(eq(requirements.id, params.requirementId));
+  return { deleted: true, requirementId: params.requirementId };
+}
+
+async function executeCreateTeamMember(params: { nick: string; role: string }): Promise<any> {
+  // Check for duplicate nick
+  const existing = await db.select().from(teamMembers).where(eq(teamMembers.nick, params.nick.trim()));
+  if (existing.length > 0) {
+    throw new Error(`A team member with nick "${params.nick}" already exists.`);
+  }
+
+  const [member] = await db
+    .insert(teamMembers)
+    .values({ nick: params.nick.trim(), role: params.role.trim() })
+    .returning();
+
+  return { member };
+}
+
+async function executeUpdateTeamMember(params: { memberId: string; nick?: string; role?: string }): Promise<any> {
+  if (!params.memberId || !isValidUUID(params.memberId)) {
+    throw new Error(`Invalid member ID: "${params.memberId}". Expected a valid UUID format.`);
+  }
+
+  const updateData: Record<string, any> = {};
+  if (params.nick !== undefined) updateData.nick = params.nick.trim();
+  if (params.role !== undefined) updateData.role = params.role.trim();
+
+  if (Object.keys(updateData).length === 0) {
+    throw new Error("No fields to update. Provide at least nick or role.");
+  }
+
+  const [updated] = await db
+    .update(teamMembers)
+    .set(updateData)
+    .where(eq(teamMembers.id, params.memberId))
+    .returning();
+
+  if (!updated) {
+    throw new Error(`Team member with ID "${params.memberId}" not found.`);
+  }
+
+  return { member: updated };
+}
+
+async function executeDeleteTeamMember(params: { memberId: string }): Promise<any> {
+  if (!params.memberId || !isValidUUID(params.memberId)) {
+    throw new Error(`Invalid member ID: "${params.memberId}". Expected a valid UUID format.`);
+  }
+
+  await db.delete(teamMembers).where(eq(teamMembers.id, params.memberId));
+  return { deleted: true, memberId: params.memberId };
 }
 
 async function executeCreateRequirement(params: CreateRequirementParams): Promise<any> {
@@ -569,13 +1043,21 @@ export async function POST(req: NextRequest) {
       apiKey: process.env.GROQ_API_KEY,
     });
 
-    // Step 1: Send prompt to Groq with function calling
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content: `You are an AI assistant that helps users manage their OpSync database through natural language commands.
-You have access to tools for creating templates, projects, requirements, and querying team members.
+    // Read-only operations that are safe to execute during planning
+    const READ_OPERATIONS = ["get_projects", "get_team_members", "get_requirements"];
+
+    // Helper to execute a read operation and return the result
+    async function executeReadOperation(name: string, args: any): Promise<any> {
+      switch (name) {
+        case "get_projects": return await executeGetProjects(args);
+        case "get_team_members": return await executeGetTeamMembers(args);
+        case "get_requirements": return await executeGetRequirements(args);
+        default: return null;
+      }
+    }
+
+    const systemPrompt = `You are an AI assistant that helps users manage their OpSync database through natural language commands.
+You have access to tools for full CRUD (create, read, update, delete) operations on projects, requirements (tasks), and team members, as well as creating templates.
 
 TEAM MEMBER ROLES:
 The database contains team members with the following role values (case-sensitive):
@@ -594,27 +1076,97 @@ IMPORTANT RULES:
   * Pay attention to keywords like "with role X", "for directs", "engineers only", etc.
 - Always use get_team_members first if the user mentions assigning to someone by specific name
 - When creating requirements, use ISO date format (YYYY-MM-DD) for dueDate
-- Execute operations in logical order (e.g., create project before adding requirements to it)`,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      model: "llama-3.3-70b-versatile",
-      tools: tools as any,
-      tool_choice: "auto",
-      temperature: 0.3,
-      max_tokens: 4096,
-    });
+- Execute operations in logical order (e.g., create project before adding requirements to it)
+- When the user asks to categorize, recategorize, or organize existing projects, ALWAYS use get_projects first to fetch existing projects, then use update_project to update their categories. NEVER use create_project for this purpose.
+- When the user asks to update, modify, or change existing entities, use the appropriate update tool (update_project, update_requirement, update_team_member). Do NOT create new entities when the user wants to modify existing ones.
+- When the user asks to delete or remove entities, use the appropriate delete tool (delete_project, delete_requirement, delete_team_member).`;
 
-    const responseMessage = chatCompletion.choices[0]?.message;
-    const toolCalls = responseMessage?.tool_calls as ToolCall[] | undefined;
+    // Step 1: Multi-round function calling - allows the LLM to read data first, then act on it
+    const messages: any[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: prompt },
+    ];
 
-    if (!toolCalls || toolCalls.length === 0) {
+    const allToolCalls: ToolCall[] = [];
+    const MAX_ROUNDS = 5;
+
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      const chatCompletion = await groq.chat.completions.create({
+        messages,
+        model: "llama-3.3-70b-versatile",
+        tools: tools as any,
+        tool_choice: "auto",
+        temperature: 0.3,
+        max_tokens: 4096,
+      });
+
+      const responseMessage = chatCompletion.choices[0]?.message;
+      const roundToolCalls = responseMessage?.tool_calls as ToolCall[] | undefined;
+
+      // No more tool calls — LLM is done
+      if (!roundToolCalls || roundToolCalls.length === 0) {
+        // If this was the first round with no tool calls at all, return the message
+        if (round === 0) {
+          return NextResponse.json({
+            success: false,
+            message: responseMessage?.content || "No operations identified from your request.",
+            operations: [],
+          });
+        }
+        break;
+      }
+
+      // Add assistant message to conversation history
+      messages.push(responseMessage);
+
+      // Process each tool call in this round
+      let hasReadOps = false;
+      for (const tc of roundToolCalls) {
+        let args: any;
+        try { args = JSON.parse(tc.function.arguments); } catch { args = {}; }
+
+        if (READ_OPERATIONS.includes(tc.function.name)) {
+          // Execute read operations immediately and feed results back to LLM
+          hasReadOps = true;
+          try {
+            const result = await executeReadOperation(tc.function.name, args);
+            messages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: JSON.stringify(result),
+            });
+          } catch (err: any) {
+            messages.push({
+              role: "tool",
+              tool_call_id: tc.id,
+              content: JSON.stringify({ error: err.message }),
+            });
+          }
+        } else {
+          // Non-read operations: acknowledge so the LLM knows they're queued
+          messages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: JSON.stringify({ status: "queued" }),
+          });
+        }
+
+        allToolCalls.push(tc);
+      }
+
+      // If no read operations in this round, no need to loop back — LLM won't get new info
+      if (!hasReadOps) {
+        break;
+      }
+    }
+
+    // Filter to get the final set of tool calls
+    const toolCalls = allToolCalls;
+
+    if (toolCalls.length === 0) {
       return NextResponse.json({
         success: false,
-        message: responseMessage?.content || "No operations identified from your request.",
+        message: "No operations identified from your request.",
         operations: [],
       });
     }
@@ -732,6 +1284,43 @@ IMPORTANT RULES:
           case "create_project":
             result = await executeCreateProject(functionArgs);
             executionContext.lastProject = result.project;
+            break;
+
+          case "get_projects":
+            result = await executeGetProjects(functionArgs);
+            executionContext.projects = result.projects;
+            break;
+
+          case "update_project":
+            result = await executeUpdateProject(functionArgs);
+            break;
+
+          case "delete_project":
+            result = await executeDeleteProject(functionArgs);
+            break;
+
+          case "get_requirements":
+            result = await executeGetRequirements(functionArgs);
+            break;
+
+          case "update_requirement":
+            result = await executeUpdateRequirement(functionArgs);
+            break;
+
+          case "delete_requirement":
+            result = await executeDeleteRequirement(functionArgs);
+            break;
+
+          case "create_team_member":
+            result = await executeCreateTeamMember(functionArgs);
+            break;
+
+          case "update_team_member":
+            result = await executeUpdateTeamMember(functionArgs);
+            break;
+
+          case "delete_team_member":
+            result = await executeDeleteTeamMember(functionArgs);
             break;
 
           case "create_requirement":
