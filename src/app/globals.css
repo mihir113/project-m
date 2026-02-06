@@ -23,6 +23,8 @@
     --scrollbar-track: transparent;
     --scrollbar-thumb: #dadce0;
     --scrollbar-thumb-hover: #c0c2c5;
+    --mosaic-glass-bg: rgba(255, 255, 255, 0.65);
+    --mosaic-glass-border: rgba(0, 0, 0, 0.08);
   }
 
   [data-theme="dark"] {
@@ -44,6 +46,8 @@
     --scrollbar-track: transparent;
     --scrollbar-thumb: #2a2d3a;
     --scrollbar-thumb-hover: #3a3d4a;
+    --mosaic-glass-bg: rgba(30, 33, 48, 0.55);
+    --mosaic-glass-border: rgba(79, 111, 245, 0.12);
   }
 
   html {
@@ -201,6 +205,95 @@
     border-color: var(--border-focus);
     box-shadow: 0 0 0 2px rgba(79, 111, 245, 0.15);
     outline: none;
+  }
+
+  /* ─── Mosaic Hub Dashboard ─── */
+  .mosaic-glass {
+    background: var(--mosaic-glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--mosaic-glass-border);
+    border-radius: 12px;
+  }
+
+  .mosaic-glass-accent {
+    background: linear-gradient(135deg, #4f6ff5, #6b85f7);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .mosaic-glass-accent:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(79, 111, 245, 0.45);
+  }
+
+  .mosaic-icon-btn {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: var(--mosaic-glass-bg);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--mosaic-glass-border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+  }
+  .mosaic-icon-btn:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--border-focus);
+  }
+  .mosaic-icon-active {
+    background: var(--bg-elevated) !important;
+    border-color: var(--border-focus) !important;
+    box-shadow: 0 0 14px var(--glow-color, rgba(79, 111, 245, 0.35));
+  }
+
+  .mosaic-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    overflow: hidden;
+  }
+  .mosaic-card:hover {
+    border-color: var(--border-focus);
+    box-shadow: 0 2px 20px var(--card-shadow);
+  }
+  .mosaic-card-active {
+    box-shadow: 0 0 24px var(--card-shadow);
+  }
+
+  .mosaic-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+  }
+  .mosaic-row:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .mosaic-stat {
+    background: var(--mosaic-glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--mosaic-glass-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    transition: all 0.2s ease;
+  }
+  .mosaic-stat:hover {
+    border-color: var(--border-focus);
+    box-shadow: 0 0 12px rgba(79, 111, 245, 0.15);
   }
 
   /* Status badges */

@@ -44,7 +44,7 @@ export default function RootLayout({
 
             {/* Main content area — takes up the rest of the screen */}
             <main className="flex-1 overflow-auto pt-16 md:pt-0" style={{ minWidth: 0 }}>
-              <div className="max-w-5xl mx-auto p-6">
+              <div className="max-w-[1400px] mx-auto p-6">
                 {children}
               </div>
             </main>
