@@ -234,7 +234,29 @@ export const aiExecutionLogs = pgTable("ai_execution_logs", {
   errorCount: integer("error_count").notNull(),
   operations: text("operations").notNull(), // JSON string of operations
   executionTimeMs: integer("execution_time_ms"),
+  automationId: uuid("automation_id"), // Links to ai_automations if triggered by cron
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
+// TABLE: ai_automations
+// Scheduled AI agent commands (e.g., "Categorize my uncategorized projects")
+// ─────────────────────────────────────────────
+export const aiAutomations = pgTable("ai_automations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  prompt: text("prompt").notNull(),
+  rules: text("rules"), // Optional rules appended to AI system prompt
+  schedule: recurrenceEnum("schedule").notNull(), // daily, weekly, monthly
+  dayOfWeek: integer("day_of_week"), // 0=Sunday..6=Saturday (for weekly)
+  dayOfMonth: integer("day_of_month"), // 1-31 (for monthly)
+  enabled: boolean("enabled").default(true).notNull(),
+  lastRunAt: timestamp("last_run_at"),
+  lastRunStatus: text("last_run_status"), // "success" | "error"
+  lastRunSummary: text("last_run_summary"),
+  lastRunLogId: uuid("last_run_log_id"), // References aiExecutionLogs.id
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // ─────────────────────────────────────────────
