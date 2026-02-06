@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
 import AIAutomationsTab from "@/components/AIAutomationsTab";
+import AIAssistantTab from "@/components/AIAssistantTab";
+import TemplatesTab from "@/components/TemplatesTab";
 
 interface Project {
   id: string;
@@ -33,10 +35,10 @@ interface Automation {
   ownerNick: string | null;
 }
 
-type Tab = "task" | "ai";
+type Tab = "assistant" | "templates" | "task" | "ai";
 
 export default function AutomationsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("task");
+  const [activeTab, setActiveTab] = useState<Tab>("assistant");
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -219,32 +221,33 @@ export default function AutomationsPage() {
         className="flex gap-0 mb-6 border-b"
         style={{ borderColor: "var(--border-default, #2a2d3a)" }}
       >
-        <button
-          onClick={() => setActiveTab("task")}
-          className="px-4 py-2.5 text-sm font-medium transition-colors relative"
-          style={{
-            color: activeTab === "task" ? "#4f6ff5" : "#9a9eb5",
-            borderBottom: activeTab === "task" ? "2px solid #4f6ff5" : "2px solid transparent",
-            marginBottom: "-1px",
-          }}
-        >
-          Task Automations
-        </button>
-        <button
-          onClick={() => setActiveTab("ai")}
-          className="px-4 py-2.5 text-sm font-medium transition-colors relative"
-          style={{
-            color: activeTab === "ai" ? "#a78bfa" : "#9a9eb5",
-            borderBottom: activeTab === "ai" ? "2px solid #a78bfa" : "2px solid transparent",
-            marginBottom: "-1px",
-          }}
-        >
-          AI Automations
-        </button>
+        {([
+          { key: "assistant", label: "AI Assistant", color: "#34d399" },
+          { key: "templates", label: "Templates", color: "#fbbf24" },
+          { key: "task", label: "Task Automations", color: "#4f6ff5" },
+          { key: "ai", label: "AI Automations", color: "#a78bfa" },
+        ] as const).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className="px-4 py-2.5 text-sm font-medium transition-colors relative"
+            style={{
+              color: activeTab === tab.key ? tab.color : "#9a9eb5",
+              borderBottom: activeTab === tab.key ? `2px solid ${tab.color}` : "2px solid transparent",
+              marginBottom: "-1px",
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
-      {activeTab === "ai" ? (
+      {activeTab === "assistant" ? (
+        <AIAssistantTab />
+      ) : activeTab === "templates" ? (
+        <TemplatesTab />
+      ) : activeTab === "ai" ? (
         <AIAutomationsTab />
       ) : (
         <>

@@ -123,7 +123,7 @@ export default function DashboardPage() {
     const activeProjects = projects.filter((p) => p.status === "active").length;
     const totalReqs = projects.reduce((s, p) => s + Number(p.totalRequirements), 0);
     const completedReqs = projects.reduce((s, p) => s + Number(p.completedRequirements), 0);
-    const pct = totalReqs > 0 ? Math.round((completedReqs / totalReqs) * 100) : 0;
+    const pct = totalReqs > 0 ? Math.round((completedReqs / totalReqs) * 100) : 100;
     const onHold = projects.filter((p) => p.status === "on-hold").length;
     const done = projects.filter((p) => p.status === "completed").length;
     return { activeProjects, totalReqs, completedReqs, pct, onHold, done };

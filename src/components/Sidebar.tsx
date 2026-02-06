@@ -10,10 +10,7 @@ const NAV_ITEMS = [
   { label: "Tasks", href: "/tasks", icon: "✓" },
   { label: "Projects", href: "/projects", icon: "◎" },
   { label: "Team", href: "/team", icon: "⦿" },
-  { label: "Templates", href: "/templates", icon: "◈" },
   { label: "Automations", href: "/automations", icon: "⚙" },
-  { label: "Import", href: "/import", icon: "↓" },
-  { label: "AI Assistant", href: "/ai", icon: "✦" },
 ];
 
 export function Sidebar() {
