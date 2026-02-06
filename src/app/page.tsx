@@ -284,9 +284,9 @@ export default function DashboardPage() {
   return (
     <div className="animate-fadeIn">
       {/* ─── Header Row: Momentum + Top Tasks + Stats + New Project ─── */}
-      <div className="flex items-stretch gap-3 mb-4">
+      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] gap-3 mb-4">
         {/* Weekly Momentum */}
-        <div className="mosaic-glass flex items-center gap-4 px-5 py-3 flex-shrink-0">
+        <div className="mosaic-glass flex items-center gap-4 px-5 py-3">
           <MomentumRing percentage={stats.pct} size={60} />
           <div>
             <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
@@ -303,7 +303,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Top 3 Tasks */}
-        <div className="mosaic-glass flex-1 px-5 py-3 min-w-0">
+        <div className="mosaic-glass px-5 py-3 min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-2">
             Priority Tasks
           </p>
@@ -347,8 +347,8 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Compact Stats */}
-        <div className="flex flex-col gap-1.5 flex-shrink-0">
+        {/* Compact Stats + New Project — side by side on mobile */}
+        <div className="flex md:flex-col gap-1.5 col-span-1 md:col-span-1">
           <Link href="/projects?status=active" className="mosaic-stat flex-1" style={{ textDecoration: "none" }}>
             <p className="text-lg font-bold" style={{ color: "#4f6ff5" }}>{stats.activeProjects}</p>
             <p className="text-[9px] text-muted uppercase tracking-wide">Active</p>
@@ -362,21 +362,21 @@ export default function DashboardPage() {
         {/* New Project */}
         <button
           onClick={openCreate}
-          className="mosaic-glass-accent flex flex-col items-center justify-center px-5 py-3 flex-shrink-0 gap-1"
+          className="mosaic-glass-accent flex md:flex-col items-center justify-center px-5 py-3 gap-2 md:gap-1"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
             <path d="M12 5v14M5 12h14" strokeLinecap="round" />
           </svg>
           <span className="text-white text-[10px] font-semibold uppercase tracking-wider">
-            New
+            New Project
           </span>
         </button>
       </div>
 
       {/* ─── Main: Focus Sidebar + Category Grid ─── */}
       <div className="flex gap-3">
-        {/* Focus Mode Sidebar */}
-        <div className="flex flex-col gap-1.5 flex-shrink-0 w-[52px]">
+        {/* Focus Mode Sidebar — hidden on mobile */}
+        <div className="hidden md:flex flex-col gap-1.5 flex-shrink-0 w-[52px]">
           {/* All button */}
           <button
             onClick={() => setActiveCategory(null)}
@@ -432,7 +432,7 @@ export default function DashboardPage() {
                   (s, p) => s + Number(p.totalRequirements),
                   0
                 );
-                const catPct = catTotal > 0 ? Math.round((catCompleted / catTotal) * 100) : 0;
+                const catPct = catTotal > 0 ? Math.round((catCompleted / catTotal) * 100) : 100;
 
                 return (
                   <div
@@ -494,7 +494,7 @@ export default function DashboardPage() {
                             ? Math.round(
                                 (project.completedRequirements / project.totalRequirements) * 100
                               )
-                            : 0;
+                            : 100;
                         return (
                           <Link
                             key={project.id}
