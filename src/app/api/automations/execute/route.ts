@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db/client";
-import { taskAutomations, requirements } from "@/db/schema";
+import { taskAutomations, requirements, teamMembers } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 
 // POST /api/automations/execute — run all enabled automations
@@ -99,6 +99,17 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Default owner to Mihir if not set on the automation
+      let resolvedOwnerId = auto.ownerId || null;
+      if (!resolvedOwnerId) {
+        const [mihir] = await db
+          .select({ id: teamMembers.id })
+          .from(teamMembers)
+          .where(eq(teamMembers.nick, "Mihir"))
+          .limit(1);
+        if (mihir) resolvedOwnerId = mihir.id;
+      }
+
       // Create the task
       const [created] = await db
         .insert(requirements)
@@ -110,7 +121,7 @@ export async function POST(req: NextRequest) {
           recurrence: auto.recurrence,
           dueDate: todayStr,
           status: "pending",
-          ownerId: auto.ownerId || null,
+          ownerId: resolvedOwnerId,
           isPerMemberCheckIn: false,
           templateId: null,
         })

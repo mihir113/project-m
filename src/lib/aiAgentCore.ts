@@ -825,6 +825,17 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
     throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
   }
 
+  // Default owner to Mihir if not provided
+  let resolvedOwnerId = params.ownerId || null;
+  if (!resolvedOwnerId) {
+    const [mihir] = await db
+      .select({ id: teamMembers.id })
+      .from(teamMembers)
+      .where(eq(teamMembers.nick, "Mihir"))
+      .limit(1);
+    if (mihir) resolvedOwnerId = mihir.id;
+  }
+
   const [requirement] = await db
     .insert(requirements)
     .values({
@@ -835,7 +846,7 @@ async function executeCreateRequirement(params: CreateRequirementParams): Promis
       recurrence: params.type === "recurring" && params.recurrence ? params.recurrence : sql`NULL`,
       dueDate: params.dueDate,
       status: "pending" as const,
-      ownerId: params.ownerId || sql`NULL`,
+      ownerId: resolvedOwnerId || sql`NULL`,
       isPerMemberCheckIn: params.isPerMemberCheckIn || false,
       templateId: params.templateId || sql`NULL`,
     })
@@ -898,6 +909,150 @@ async function executeCreateRequirementsForAllTeamMembers(params: Omit<CreateReq
 }
 
 // ─────────────────────────────────────────────
+// PROJECT DICTIONARY & CONTEXT BUILDERS
+// ─────────────────────────────────────────────
+
+const COMMON_ABBREVIATIONS: Record<string, string[]> = {
+  operations: ["ops", "oper"],
+  engineering: ["eng", "engg"],
+  management: ["mgmt", "mgt"],
+  development: ["dev", "devel"],
+  production: ["prod"],
+  infrastructure: ["infra"],
+  security: ["sec"],
+  compliance: ["comp"],
+  administration: ["admin"],
+  communication: ["comm", "comms"],
+  communications: ["comm", "comms"],
+  performance: ["perf"],
+  quality: ["qa", "qual"],
+  requirements: ["reqs", "req"],
+  configuration: ["config", "cfg"],
+  documentation: ["docs", "doc"],
+  automation: ["auto"],
+  integration: ["integ", "integr"],
+  monitoring: ["mon"],
+  review: ["rev"],
+  planning: ["plan"],
+  training: ["train"],
+  recruitment: ["recruit", "hiring"],
+  onboarding: ["onboard"],
+  customer: ["cust"],
+  technical: ["tech"],
+  financial: ["fin", "finance"],
+  marketing: ["mktg", "mkt"],
+  technology: ["tech"],
+  services: ["svc", "svcs"],
+  service: ["svc"],
+  analysis: ["analysis"],
+  analytics: ["analytics"],
+  assessment: ["assess"],
+  improvement: ["improv"],
+  optimization: ["optim", "opt"],
+  transformation: ["transform"],
+  leadership: ["lead"],
+  reporting: ["report", "rpt"],
+  delivery: ["deliv"],
+  architecture: ["arch"],
+  governance: ["gov"],
+  maintenance: ["maint"],
+  support: ["sup"],
+  strategy: ["strat"],
+  program: ["prog", "pgm"],
+  project: ["proj"],
+  enablement: ["enable"],
+  excellence: ["excel"],
+  continuous: ["cont"],
+};
+
+async function buildProjectDictionary(): Promise<string> {
+  const allProjects = await db
+    .select({
+      id: projects.id,
+      name: projects.name,
+      category: projects.category,
+      status: projects.status,
+    })
+    .from(projects);
+
+  if (allProjects.length === 0) return "";
+
+  const entries = allProjects.map((p) => {
+    const aliases: string[] = [];
+    const words = p.name.split(/\s+/);
+
+    // Acronym from first letters (only if multi-word)
+    if (words.length > 1) {
+      aliases.push(words.map((w) => w[0].toLowerCase()).join(""));
+    }
+
+    // Each individual word as an alias (lowercase)
+    for (const word of words) {
+      const lower = word.toLowerCase();
+      aliases.push(lower);
+      // Add common abbreviations for this word
+      if (COMMON_ABBREVIATIONS[lower]) {
+        aliases.push(...COMMON_ABBREVIATIONS[lower]);
+      }
+    }
+
+    // Generate abbreviated forms: replace each word with its abbreviation
+    if (words.length > 1) {
+      for (let i = 0; i < words.length; i++) {
+        const wordLower = words[i].toLowerCase();
+        const abbrevs = COMMON_ABBREVIATIONS[wordLower];
+        if (abbrevs) {
+          for (const abbr of abbrevs) {
+            const parts = [...words];
+            parts[i] = abbr;
+            aliases.push(parts.join(" ").toLowerCase());
+          }
+        }
+      }
+    }
+
+    // Deduplicate
+    const uniqueAliases = [...new Set(aliases)].filter(
+      (a) => a !== p.name.toLowerCase() && a.length > 1
+    );
+
+    const catInfo = p.category ? `, category: "${p.category}"` : "";
+    return `  - "${p.name}" (ID: ${p.id}, status: ${p.status}${catInfo})\n    aliases: ${uniqueAliases.join(", ")}`;
+  });
+
+  return `\n\nPROJECT DICTIONARY — use this to match user input to the correct project:
+${entries.join("\n")}
+
+MATCHING RULES:
+- When the user mentions a project by name, abbreviation, partial name, or typo, use this dictionary to find the best matching project ID.
+- Be flexible: "ops" → "Operations", "sec review" → "Security Review", "eng" → "Engineering", etc.
+- If the user's input matches multiple projects, pick the most likely one based on context.
+- If truly ambiguous, ask the user to clarify.
+- NEVER create a new project when the user is clearly referring to an existing one.
+- Always use the project ID (UUID) from this dictionary when calling tools.`;
+}
+
+async function buildTeamContext(): Promise<string> {
+  const members = await db
+    .select({ id: teamMembers.id, nick: teamMembers.nick, role: teamMembers.role })
+    .from(teamMembers)
+    .orderBy(teamMembers.nick);
+
+  if (members.length === 0) return "";
+
+  const mihir = members.find((m) => m.nick.toLowerCase() === "mihir");
+  const lines = members.map(
+    (m) =>
+      `  - "${m.nick}" (ID: ${m.id}, Role: ${m.role})${m.nick.toLowerCase() === "mihir" ? " ← DEFAULT OWNER" : ""}`
+  );
+
+  return `\n\nTEAM MEMBERS:
+${lines.join("\n")}
+
+DEFAULT ASSIGNMENT: When creating tasks/requirements without a specified owner, ALWAYS assign to ${mihir ? `"${mihir.nick}" (ID: ${mihir.id})` : "the default owner"}.`;
+}
+
+// ─────────────────────────────────────────────
 // CORE AI EXECUTION PIPELINE
 // ─────────────────────────────────────────────
 
@@ -957,6 +1112,14 @@ IMPORTANT RULES:
     if (rules) {
       systemPrompt += `\n\nADDITIONAL RULES (follow these strictly):\n${rules}`;
     }
+
+    // Inject project dictionary and team context for fuzzy matching
+    const [projectDict, teamCtx] = await Promise.all([
+      buildProjectDictionary(),
+      buildTeamContext(),
+    ]);
+    systemPrompt += projectDict;
+    systemPrompt += teamCtx;
 
     // Multi-round function calling
     const messages: any[] = [

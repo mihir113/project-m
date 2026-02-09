@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
       .leftJoin(teamMembers, eq(teamMembers.id, requirements.ownerId))
       .leftJoin(projects, eq(projects.id, requirements.projectId))
       .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(requirements.createdAt);
+      .orderBy(requirements.dueDate);
 
     return NextResponse.json({ data: rows });
   } catch (err) {
@@ -49,6 +49,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "projectId, name, type, and dueDate are required" }, { status: 400 });
     }
 
+    // Default owner to Mihir if not provided
+    let resolvedOwnerId = ownerId || null;
+    if (!resolvedOwnerId) {
+      const [mihir] = await db
+        .select({ id: teamMembers.id })
+        .from(teamMembers)
+        .where(eq(teamMembers.nick, "Mihir"))
+        .limit(1);
+      if (mihir) resolvedOwnerId = mihir.id;
+    }
+
     // Create the requirement
     const [created] = await db
       .insert(requirements)
@@ -60,7 +71,7 @@ export async function POST(req: NextRequest) {
         recurrence: type === "one-time" ? null : recurrence,
         dueDate,
         status: "pending",
-        ownerId: ownerId || null,
+        ownerId: resolvedOwnerId,
         isPerMemberCheckIn: isPerMemberCheckIn || false,
         templateId: templateId || null,
       })

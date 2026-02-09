@@ -151,7 +151,7 @@ export default function DashboardPage() {
   // Top 3 pending tasks
   const topTasks = useMemo(() => {
     return tasks
-      .filter((t) => t.status === "pending")
+      .filter((t) => t.status === "pending" || t.status === "overdue")
       .sort((a, b) => {
         if (!a.dueDate) return 1;
         if (!b.dueDate) return -1;
@@ -164,7 +164,7 @@ export default function DashboardPage() {
     try {
       const [projRes, taskRes] = await Promise.all([
         fetch("/api/projects"),
-        fetch("/api/requirements?status=pending"),
+        fetch("/api/requirements"),
       ]);
       const projJson = await projRes.json();
       const taskJson = await taskRes.json();
