@@ -189,6 +189,24 @@ export default function TasksPage() {
     }
   };
 
+  const playCompletionSound = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // Pleasant two-tone chime
+      [520, 780].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.3);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.3);
+      });
+    } catch {}
+  };
+
   const handleComplete = async (task: Task) => {
     setCompletingTask(task.id);
     try {
@@ -197,6 +215,8 @@ export default function TasksPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: task.id, status: "completed" }),
       });
+      playCompletionSound();
+      if (navigator.vibrate) navigator.vibrate(80);
       showToast("Task completed", "success");
       await fetchTasks();
     } catch {

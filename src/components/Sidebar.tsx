@@ -27,6 +27,24 @@ export function Sidebar() {
     return () => window.removeEventListener("resize", expand);
   }, []);
 
+  // Hide mobile hamburger on scroll down, show on scroll up
+  const [mobileNavHidden, setMobileNavHidden] = useState(false);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY;
+      if (y > lastScrollY.current && y > 60) {
+        setMobileNavHidden(true);
+      } else {
+        setMobileNavHidden(false);
+      }
+      lastScrollY.current = y;
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // Close mobile drawer whenever the route changes
   useEffect(() => {
     setMobileOpen(false);
@@ -106,6 +124,10 @@ export function Sidebar() {
       style={{
         width: "40px",
         height: "40px",
+        transition: "transform 0.3s ease, opacity 0.3s ease",
+        transform: mobileNavHidden ? "translateY(-70px)" : "translateY(0)",
+        opacity: mobileNavHidden ? 0 : 1,
+        pointerEvents: mobileNavHidden ? "none" : "auto",
       }}
       aria-label="Open menu"
     >
