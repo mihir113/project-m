@@ -27,6 +27,17 @@ interface TaskItem {
   projectId: string;
 }
 
+interface TeamMember {
+  id: string;
+  nick: string;
+  role: string;
+}
+
+interface Template {
+  id: string;
+  name: string;
+}
+
 const STATUS_OPTIONS = ["active", "on-hold", "completed"];
 
 // ─── Sparkline (deterministic mini area chart) ───
@@ -112,6 +123,23 @@ export default function DashboardPage() {
   const [form, setForm] = useState({ name: "", description: "", status: "active", category: "" });
   const [saving, setSaving] = useState(false);
 
+  // Task add modal state
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [taskForm, setTaskForm] = useState({
+    projectId: "",
+    name: "",
+    description: "",
+    type: "one-time" as "recurring" | "one-time",
+    recurrence: "quarterly",
+    dueDate: new Date().toISOString().split("T")[0],
+    ownerId: "",
+    isPerMemberCheckIn: false,
+    templateId: "",
+  });
+  const [savingTask, setSavingTask] = useState(false);
+
   // Category management
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
@@ -162,15 +190,23 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     try {
-      const [projRes, taskRes] = await Promise.all([
+      const [projRes, taskRes, teamRes, tmplRes] = await Promise.all([
         fetch("/api/projects"),
         fetch("/api/requirements"),
+        fetch("/api/team"),
+        fetch("/api/check-in-templates"),
       ]);
-      const projJson = await projRes.json();
-      const taskJson = await taskRes.json();
+      const [projJson, taskJson, teamJson, tmplJson] = await Promise.all([
+        projRes.json(),
+        taskRes.json(),
+        teamRes.json(),
+        tmplRes.json(),
+      ]);
       const projectsData = projJson.data || [];
       setProjects(projectsData);
       setTasks(taskJson.data || []);
+      setTeamMembers(teamJson.data || []);
+      setTemplates(tmplJson.data || []);
       const uniqueCategories = Array.from(
         new Set(projectsData.map((p: ProjectWithCounts) => p.category).filter(Boolean))
       ) as string[];
@@ -268,6 +304,57 @@ export default function DashboardPage() {
     }
   };
 
+  // ── Task modal handlers ──
+  const openAddTask = () => {
+    const mihir = teamMembers.find((m) => m.nick.toLowerCase() === "mihir");
+    setTaskForm({
+      projectId: projects.length > 0 ? projects[0].id : "",
+      name: "",
+      description: "",
+      type: "one-time",
+      recurrence: "quarterly",
+      dueDate: new Date().toISOString().split("T")[0],
+      ownerId: mihir?.id || "",
+      isPerMemberCheckIn: false,
+      templateId: "",
+    });
+    setTaskModalOpen(true);
+  };
+
+  const handleAddTask = async () => {
+    if (!taskForm.name.trim() || !taskForm.projectId) return;
+    setSavingTask(true);
+    try {
+      const res = await fetch("/api/requirements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: taskForm.projectId,
+          name: taskForm.name,
+          description: taskForm.description || null,
+          type: taskForm.type,
+          recurrence: taskForm.type === "recurring" ? taskForm.recurrence : null,
+          dueDate: taskForm.dueDate,
+          ownerId: taskForm.ownerId || null,
+          isPerMemberCheckIn: taskForm.isPerMemberCheckIn,
+          templateId: taskForm.templateId || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error || "Failed to create task", "error");
+        return;
+      }
+      showToast(`Created "${taskForm.name}"`, "success");
+      setTaskModalOpen(false);
+      await fetchData();
+    } catch {
+      showToast("Failed to create task", "error");
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
   // Visible categories (filtered by sidebar selection)
   const visibleCategories = sortedCategories.filter(
     (cat) => !activeCategory || activeCategory === cat
@@ -304,9 +391,18 @@ export default function DashboardPage() {
 
         {/* Top 3 Tasks */}
         <div className="mosaic-glass px-5 py-3 min-w-0">
-          <p className="text-[10px] uppercase tracking-widest text-muted font-semibold mb-2">
-            Priority Tasks
-          </p>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
+              Priority Tasks
+            </p>
+            <button
+              onClick={openAddTask}
+              className="text-[10px] font-semibold transition-colors"
+              style={{ color: "#4f6ff5" }}
+            >
+              + Add
+            </button>
+          </div>
           {topTasks.length === 0 ? (
             <p className="text-xs text-muted italic">All clear — no pending tasks</p>
           ) : (
@@ -664,6 +760,170 @@ export default function DashboardPage() {
               disabled={saving || !form.name.trim()}
             >
               {saving ? "Saving..." : editingProject ? "Save Changes" : "Create Project"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── Add Task Modal ─── */}
+      <Modal
+        open={taskModalOpen}
+        onClose={() => setTaskModalOpen(false)}
+        title="Add Task"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted mb-1 block">Project</label>
+            <select
+              className="input-field"
+              value={taskForm.projectId}
+              onChange={(e) => setTaskForm({ ...taskForm, projectId: e.target.value })}
+            >
+              {projects.length === 0 ? (
+                <option value="">No projects available</option>
+              ) : (
+                projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Task Name</label>
+            <input
+              className="input-field"
+              placeholder="e.g. Weekly backup check"
+              value={taskForm.name}
+              onChange={(e) => setTaskForm({ ...taskForm, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Description (optional)</label>
+            <textarea
+              className="input-field"
+              rows={2}
+              placeholder="Details..."
+              value={taskForm.description}
+              onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
+            />
+          </div>
+
+          {/* Type toggle */}
+          <div className="flex gap-2">
+            {["one-time", "recurring"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTaskForm({ ...taskForm, type: t as any })}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  taskForm.type === t
+                    ? "bg-[#4f6ff5] text-white"
+                    : "bg-tertiary text-secondary"
+                }`}
+              >
+                {t === "one-time" ? "One-time" : "Recurring"}
+              </button>
+            ))}
+          </div>
+
+          {taskForm.type === "recurring" && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Recurrence</label>
+              <select
+                className="input-field"
+                value={taskForm.recurrence}
+                onChange={(e) => setTaskForm({ ...taskForm, recurrence: e.target.value })}
+              >
+                <option value="daily">Daily</option>
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="quarterly">Quarterly</option>
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Due Date</label>
+            <input
+              type="date"
+              className="input-field"
+              value={taskForm.dueDate}
+              onChange={(e) => setTaskForm({ ...taskForm, dueDate: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Owner (optional)</label>
+            <select
+              className="input-field"
+              value={taskForm.ownerId}
+              onChange={(e) => setTaskForm({ ...taskForm, ownerId: e.target.value })}
+            >
+              <option value="">Unassigned</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nick} — {m.role}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Per-member check-in toggle */}
+          <div className="flex items-center justify-between p-3 rounded-lg border border-default" style={{ backgroundColor: "var(--bg-secondary)" }}>
+            <div>
+              <p className="text-sm text-primary font-medium">Per-member check-in</p>
+              <p className="text-xs text-muted">One submission per team member each cycle</p>
+            </div>
+            <button
+              onClick={() =>
+                setTaskForm({
+                  ...taskForm,
+                  isPerMemberCheckIn: !taskForm.isPerMemberCheckIn,
+                  templateId: "",
+                })
+              }
+              className="w-10 h-5 rounded-full transition-colors relative"
+              style={{ backgroundColor: taskForm.isPerMemberCheckIn ? "#4f6ff5" : "#d1d5db" }}
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                style={{ left: taskForm.isPerMemberCheckIn ? "22px" : "2px" }}
+              />
+            </button>
+          </div>
+
+          {/* Template picker — only if per-member is on */}
+          {taskForm.isPerMemberCheckIn && (
+            <div>
+              <label className="text-xs text-muted mb-1 block">Check-in Template (optional)</label>
+              <select
+                className="input-field"
+                value={taskForm.templateId}
+                onChange={(e) => setTaskForm({ ...taskForm, templateId: e.target.value })}
+              >
+                <option value="">No template</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button className="btn-ghost" onClick={() => setTaskModalOpen(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              onClick={handleAddTask}
+              disabled={savingTask || !taskForm.name.trim() || !taskForm.projectId}
+            >
+              {savingTask ? "Adding..." : "Add Task"}
             </button>
           </div>
         </div>

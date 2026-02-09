@@ -60,7 +60,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               >
                 {c.icon}
               </span>
-              <p className="text-sm text-primary">{toast.message}</p>
+              <p className="text-sm" style={{ color: "#f0f1f3" }}>{toast.message}</p>
             </div>
           );
         })}
