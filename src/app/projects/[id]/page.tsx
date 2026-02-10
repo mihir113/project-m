@@ -53,7 +53,7 @@ export default function ProjectDetailPage() {
   const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [filterOwner, setFilterOwner] = useState("all");
 
-  // ── Add Requirement modal ──
+  // ── Add Task modal ──
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [reqForm, setReqForm] = useState({
     name: "", description: "",
@@ -63,8 +63,24 @@ export default function ProjectDetailPage() {
     ownerId: "",
     isPerMemberCheckIn: false,
     templateId: "",
+    url: "",
   });
   const [savingReq, setSavingReq] = useState(false);
+
+  const openAddTask = () => {
+    const mihir = teamMembers.find((m) => m.nick.toLowerCase() === "mihir");
+    setReqForm({
+      name: "", description: "",
+      type: "one-time",
+      recurrence: "quarterly",
+      dueDate: new Date().toISOString().split("T")[0],
+      ownerId: mihir?.id || "",
+      isPerMemberCheckIn: false,
+      templateId: "",
+      url: "",
+    });
+    setAddModalOpen(true);
+  };
 
   // ── Edit Requirement modal ──
   const [editModalReq, setEditModalReq] = useState<Requirement | null>(null);
@@ -161,13 +177,14 @@ export default function ProjectDetailPage() {
           ownerId: reqForm.ownerId || null,
           isPerMemberCheckIn: reqForm.isPerMemberCheckIn,
           templateId: reqForm.templateId || null,
+          url: reqForm.url.trim() || null,
         }),
       });
       const json = await res.json();
       if (!res.ok) { showToast(json.error || "Failed", "error"); return; }
       showToast(`Added "${reqForm.name}"`, "success");
       setAddModalOpen(false);
-      setReqForm({ name: "", description: "", type: "one-time", recurrence: "quarterly", dueDate: new Date().toISOString().split("T")[0], ownerId: "", isPerMemberCheckIn: false, templateId: "" });
+      setReqForm({ name: "", description: "", type: "one-time", recurrence: "quarterly", dueDate: new Date().toISOString().split("T")[0], ownerId: "", isPerMemberCheckIn: false, templateId: "", url: "" });
       await fetchData();
     } finally { setSavingReq(false); }
   };
@@ -502,7 +519,7 @@ export default function ProjectDetailPage() {
         <div className="flex gap-2 flex-wrap sm:flex-nowrap">
           <button className="btn-ghost text-xs sm:text-sm whitespace-nowrap" onClick={openEditProject}>✎ Edit</button>
           <button className="btn-danger text-xs sm:text-sm whitespace-nowrap" onClick={() => setDeleteProjectConfirm(true)}>Delete</button>
-          <button className="btn-primary text-xs sm:text-sm whitespace-nowrap" onClick={() => setAddModalOpen(true)}>+ Task</button>
+          <button className="btn-primary text-xs sm:text-sm whitespace-nowrap" onClick={openAddTask}>+ Task</button>
         </div>
       </div>
       {project.description && <p className="text-secondary text-sm mb-4">{project.description}</p>}
@@ -599,8 +616,8 @@ export default function ProjectDetailPage() {
       {/* MODALS                                       */}
       {/* ════════════════════════════════════════════ */}
 
-      {/* ── Add Requirement Modal ── */}
-      <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add Requirement">
+      {/* ── Add Task Modal ── */}
+      <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)} title="Add Task">
         <div className="space-y-4">
           <div>
             <label className="text-xs text-muted mb-1 block">Name</label>
@@ -647,6 +664,11 @@ export default function ProjectDetailPage() {
             </select>
           </div>
 
+          <div>
+            <label className="text-xs text-muted mb-1 block">URL (optional)</label>
+            <input type="url" className="input-field" placeholder="https://..." value={reqForm.url} onChange={(e) => setReqForm({ ...reqForm, url: e.target.value })} />
+          </div>
+
           {/* Per-member check-in toggle */}
           <div className="flex items-center justify-between p-3 rounded-lg bg-tertiary border border-default">
             <div>
@@ -676,7 +698,7 @@ export default function ProjectDetailPage() {
           <div className="flex justify-end gap-2 pt-2">
             <button className="btn-ghost" onClick={() => setAddModalOpen(false)}>Cancel</button>
             <button className="btn-primary" onClick={handleAddRequirement} disabled={savingReq || !reqForm.name.trim()}>
-              {savingReq ? "Adding..." : "Add Requirement"}
+              {savingReq ? "Adding..." : "Add Task"}
             </button>
           </div>
         </div>
