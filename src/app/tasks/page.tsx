@@ -86,6 +86,7 @@ export default function TasksPage() {
     ownerId: "",
     isPerMemberCheckIn: false,
     templateId: "",
+    url: "",
   });
   const [savingAdd, setSavingAdd] = useState(false);
 
@@ -152,6 +153,7 @@ export default function TasksPage() {
       ownerId: mihir?.id || "",
       isPerMemberCheckIn: false,
       templateId: "",
+      url: "",
     });
     setAddModalOpen(true);
   };
@@ -174,6 +176,7 @@ export default function TasksPage() {
           ownerId: addForm.ownerId || null,
           isPerMemberCheckIn: addForm.isPerMemberCheckIn,
           templateId: addForm.templateId || null,
+          url: addForm.url.trim() || null,
         }),
       });
       const json = await res.json();
@@ -537,6 +540,17 @@ export default function TasksPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">URL (optional)</label>
+            <input
+              className="input-field"
+              type="url"
+              placeholder="https://..."
+              value={addForm.url}
+              onChange={(e) => setAddForm({ ...addForm, url: e.target.value })}
+            />
           </div>
 
           {/* Per-member check-in toggle */}

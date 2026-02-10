@@ -138,6 +138,7 @@ export default function DashboardPage() {
     ownerId: "",
     isPerMemberCheckIn: false,
     templateId: "",
+    url: "",
   });
   const [savingTask, setSavingTask] = useState(false);
 
@@ -326,6 +327,7 @@ export default function DashboardPage() {
       ownerId: mihir?.id || "",
       isPerMemberCheckIn: false,
       templateId: "",
+      url: "",
     });
     setTaskModalOpen(true);
   };
@@ -347,6 +349,7 @@ export default function DashboardPage() {
           ownerId: taskForm.ownerId || null,
           isPerMemberCheckIn: taskForm.isPerMemberCheckIn,
           templateId: taskForm.templateId || null,
+          url: taskForm.url.trim() || null,
         }),
       });
       const json = await res.json();
@@ -378,7 +381,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="animate-fadeIn">
+    <div className="animate-fadeIn dashboard-bg">
       {/* ─── Header Row: Momentum + Top Tasks + Stats + New Project ─── */}
       <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] gap-3 mb-4">
         {/* Weekly Momentum */}
@@ -404,13 +407,6 @@ export default function DashboardPage() {
             <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
               Priority Tasks
             </p>
-            <button
-              onClick={openAddTask}
-              className="text-[10px] font-semibold transition-colors"
-              style={{ color: "#4f6ff5" }}
-            >
-              + Add
-            </button>
           </div>
           {topTasks.length === 0 ? (
             <p className="text-xs text-muted italic">All clear — no pending tasks</p>
@@ -452,7 +448,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Compact Stats + New Project — side by side on mobile */}
+        {/* Compact Stats */}
         <div className="flex md:flex-col gap-1.5 col-span-1 md:col-span-1">
           <Link href="/projects?status=active" className="mosaic-stat flex-1" style={{ textDecoration: "none" }}>
             <p className="text-lg font-bold" style={{ color: "#4f6ff5" }}>{stats.activeProjects}</p>
@@ -464,18 +460,31 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* New Project */}
-        <button
-          onClick={openCreate}
-          className="mosaic-glass-accent flex md:flex-col items-center justify-center px-5 py-3 gap-2 md:gap-1"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-          </svg>
-          <span className="text-white text-[10px] font-semibold uppercase tracking-wider">
-            New Project
-          </span>
-        </button>
+        {/* New Task + New Project */}
+        <div className="flex md:flex-col gap-1.5">
+          <button
+            onClick={openAddTask}
+            className="mosaic-glass-accent flex md:flex-col items-center justify-center px-5 py-3 gap-2 md:gap-1 flex-1"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+            <span className="text-white text-[10px] font-semibold uppercase tracking-wider">
+              New Task
+            </span>
+          </button>
+          <button
+            onClick={openCreate}
+            className="mosaic-glass-accent flex md:flex-col items-center justify-center px-5 py-3 gap-2 md:gap-1 flex-1"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+            </svg>
+            <span className="text-white text-[10px] font-semibold uppercase tracking-wider">
+              New Project
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* ─── Focus Toggle (mobile) ─── */}
@@ -935,6 +944,17 @@ export default function DashboardPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">URL (optional)</label>
+            <input
+              className="input-field"
+              type="url"
+              placeholder="https://..."
+              value={taskForm.url}
+              onChange={(e) => setTaskForm({ ...taskForm, url: e.target.value })}
+            />
           </div>
 
           {/* Per-member check-in toggle */}

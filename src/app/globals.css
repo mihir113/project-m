@@ -296,6 +296,44 @@
     box-shadow: 0 0 12px rgba(79, 111, 245, 0.15);
   }
 
+  /* ─── Dashboard abstract background ─── */
+  .dashboard-bg {
+    position: relative;
+  }
+  .dashboard-bg::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 600px 500px at 10% 15%, rgba(79, 111, 245, 0.06), transparent),
+      radial-gradient(ellipse 500px 400px at 85% 25%, rgba(139, 92, 246, 0.05), transparent),
+      radial-gradient(ellipse 400px 350px at 50% 60%, rgba(52, 211, 153, 0.04), transparent),
+      radial-gradient(ellipse 550px 450px at 75% 80%, rgba(251, 191, 36, 0.03), transparent),
+      radial-gradient(ellipse 450px 350px at 20% 75%, rgba(79, 111, 245, 0.04), transparent);
+  }
+  [data-theme="dark"] .dashboard-bg::before {
+    background:
+      radial-gradient(ellipse 600px 500px at 10% 15%, rgba(79, 111, 245, 0.08), transparent),
+      radial-gradient(ellipse 500px 400px at 85% 25%, rgba(139, 92, 246, 0.06), transparent),
+      radial-gradient(ellipse 400px 350px at 50% 60%, rgba(52, 211, 153, 0.05), transparent),
+      radial-gradient(ellipse 550px 450px at 75% 80%, rgba(251, 191, 36, 0.04), transparent),
+      radial-gradient(ellipse 450px 350px at 20% 75%, rgba(79, 111, 245, 0.05), transparent);
+  }
+
+  /* Larger fonts on desktop monitors */
+  @media (min-width: 1280px) {
+    .dashboard-bg {
+      font-size: 1.0625rem;
+    }
+    .dashboard-bg .text-2xl { font-size: 1.625rem; }
+    .dashboard-bg .text-lg { font-size: 1.1875rem; }
+    .dashboard-bg .text-base { font-size: 1.0625rem; }
+    .dashboard-bg .text-sm { font-size: 0.9375rem; }
+    .dashboard-bg .text-xs { font-size: 0.8125rem; }
+  }
+
   /* Status badges */
   .badge-pending {
     background-color: rgba(251, 191, 36, 0.12);
