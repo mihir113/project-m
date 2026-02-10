@@ -35,6 +35,7 @@ export interface Requirement {
   status: RequirementStatus;
   ownerId: string | null;
   isPerMemberCheckIn: boolean;
+  url: string | null;
   createdAt: string;
   // Populated via joins — not always present
   owner?: TeamMember | null;

@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { projectId, name, description, type, recurrence, dueDate, ownerId, isPerMemberCheckIn, templateId, metricTemplates: metrics } = body;
+    const { projectId, name, description, type, recurrence, dueDate, ownerId, isPerMemberCheckIn, templateId, url, metricTemplates: metrics } = body;
 
     if (!projectId || !name || !type || !dueDate) {
       return NextResponse.json({ error: "projectId, name, type, and dueDate are required" }, { status: 400 });
@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
         ownerId: resolvedOwnerId,
         isPerMemberCheckIn: isPerMemberCheckIn || false,
         templateId: templateId || null,
+        url: url?.trim() || null,
       })
       .returning();
 
@@ -100,7 +101,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, description, type, recurrence, dueDate, status, ownerId, isPerMemberCheckIn, templateId } = body;
+    const { id, name, description, type, recurrence, dueDate, status, ownerId, isPerMemberCheckIn, templateId, url } = body;
 
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -116,6 +117,7 @@ export async function PUT(req: NextRequest) {
     if (ownerId !== undefined) updates.ownerId = ownerId || null;
     if (isPerMemberCheckIn !== undefined) updates.isPerMemberCheckIn = isPerMemberCheckIn;
     if (templateId !== undefined) updates.templateId = templateId || null;
+    if (url !== undefined) updates.url = url?.trim() || null;
 
     const [updated] = await db
       .update(requirements)

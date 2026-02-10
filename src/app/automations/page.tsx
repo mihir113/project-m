@@ -335,7 +335,7 @@ export default function AutomationsPage() {
                       >
                         ↻ {auto.recurrence}
                         {auto.recurrence === "weekly" && auto.dayOfWeek !== null &&
-                          ` · ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][auto.dayOfWeek]}`
+                          ` · ${auto.dayOfWeek === 7 ? "Mon–Fri" : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][auto.dayOfWeek]}`
                         }
                         {auto.recurrence === "monthly" && auto.dayOfMonth !== null &&
                           ` · ${auto.dayOfMonth}${["th", "st", "nd", "rd"][auto.dayOfMonth % 10 > 3 ? 0 : auto.dayOfMonth % 10]}`
@@ -473,6 +473,7 @@ export default function AutomationsPage() {
                     <option value="4">Thursday</option>
                     <option value="5">Friday</option>
                     <option value="6">Saturday</option>
+                    <option value="7">Business Days (Mon–Fri)</option>
                   </select>
                 </div>
               )}

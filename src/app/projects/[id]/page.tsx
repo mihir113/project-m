@@ -15,7 +15,7 @@ interface Requirement {
   id: string; projectId: string; name: string; description: string | null;
   type: string; recurrence: string | null; dueDate: string; status: string;
   ownerId: string | null; isPerMemberCheckIn: boolean; templateId: string | null;
-  ownerNick?: string; metricCount?: number;
+  url: string | null; ownerNick?: string; metricCount?: number;
 }
 interface Template { id: string; name: string; goalAreas: GoalArea[]; }
 interface GoalArea { id: string; name: string; goals: Goal[]; }
@@ -76,6 +76,7 @@ export default function ProjectDetailPage() {
     ownerId: "",
     isPerMemberCheckIn: false,
     templateId: "",
+    url: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -182,6 +183,7 @@ export default function ProjectDetailPage() {
       ownerId: req.ownerId || "",
       isPerMemberCheckIn: req.isPerMemberCheckIn,
       templateId: req.templateId || "",
+      url: req.url || "",
     });
     setEditModalReq(req);
   };
@@ -204,6 +206,7 @@ export default function ProjectDetailPage() {
           ownerId: editForm.ownerId || null,
           isPerMemberCheckIn: editForm.isPerMemberCheckIn,
           templateId: editForm.templateId || null,
+          url: editForm.url.trim() || null,
         }),
       });
       const json = await res.json();
@@ -561,6 +564,18 @@ export default function ProjectDetailPage() {
                       <span>Due {formatDate(req.dueDate)}</span>
                       {req.ownerNick && <span>• {req.ownerNick}</span>}
                     </div>
+                    {req.url && (
+                      <a
+                        href={req.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs mt-1 block truncate hover:underline"
+                        style={{ color: "#4f6ff5" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {req.url}
+                      </a>
+                    )}
                   </div>
                 </div>
 
@@ -713,6 +728,11 @@ export default function ProjectDetailPage() {
               <option value="">Unassigned</option>
               {teamMembers.map((m) => <option key={m.id} value={m.id}>{m.nick} — {m.role}</option>)}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">URL (optional)</label>
+            <input className="input-field" type="url" placeholder="https://..." value={editForm.url} onChange={(e) => setEditForm({ ...editForm, url: e.target.value })} />
           </div>
 
           {/* Per-member check-in toggle */}

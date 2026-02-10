@@ -34,7 +34,14 @@ export async function POST(req: NextRequest) {
           shouldRun = true;
           break;
         case "weekly":
-          shouldRun = auto.dayOfWeek === null || auto.dayOfWeek === dayOfWeek;
+          if (auto.dayOfWeek === null) {
+            shouldRun = true;
+          } else if (auto.dayOfWeek === 7) {
+            // Business days: Monday (1) through Friday (5)
+            shouldRun = dayOfWeek >= 1 && dayOfWeek <= 5;
+          } else {
+            shouldRun = auto.dayOfWeek === dayOfWeek;
+          }
           break;
         case "monthly":
           shouldRun = auto.dayOfMonth === null

@@ -18,6 +18,7 @@ interface Task {
   status: string;
   ownerId: string | null;
   ownerNick: string | null;
+  url: string | null;
 }
 
 interface TeamMember {
@@ -96,6 +97,7 @@ export default function TasksPage() {
     description: "",
     dueDate: "",
     ownerId: "",
+    url: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -234,6 +236,7 @@ export default function TasksPage() {
       description: task.description || "",
       dueDate: task.dueDate,
       ownerId: task.ownerId || "",
+      url: task.url || "",
     });
     setEditModalOpen(true);
   };
@@ -252,6 +255,7 @@ export default function TasksPage() {
           description: editForm.description.trim() || null,
           dueDate: editForm.dueDate,
           ownerId: editForm.ownerId || null,
+          url: editForm.url.trim() || null,
         }),
       });
       showToast("Task updated", "success");
@@ -381,6 +385,18 @@ export default function TasksPage() {
                         <span>Due: {new Date(task.dueDate + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                         {task.ownerNick && <span>• {task.ownerNick}</span>}
                       </div>
+                      {task.url && (
+                        <a
+                          href={task.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs mt-1 block truncate hover:underline"
+                          style={{ color: "#4f6ff5" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {task.url}
+                        </a>
+                      )}
                     </div>
 
                     {/* Complete Button */}
@@ -640,6 +656,17 @@ export default function TasksPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">URL (optional)</label>
+            <input
+              className="input-field"
+              type="url"
+              placeholder="https://..."
+              value={editForm.url}
+              onChange={(e) => setEditForm({ ...editForm, url: e.target.value })}
+            />
           </div>
 
           <div className="flex justify-between gap-2 pt-2">

@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
           if (auto.dayOfWeek === null) {
             // No day specified = run every day (legacy behavior)
             shouldRun = true;
+          } else if (auto.dayOfWeek === 7) {
+            // Business days: Monday (1) through Friday (5)
+            shouldRun = dayOfWeek >= 1 && dayOfWeek <= 5;
           } else {
             shouldRun = auto.dayOfWeek === dayOfWeek;
           }

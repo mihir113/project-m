@@ -111,6 +111,7 @@ export const requirements = pgTable("requirements", {
   isPerMemberCheckIn: boolean("is_per_member_check_in").default(false).notNull(),
   // Link to a check-in template — null if not using one
   templateId: uuid("template_id").references(() => checkInTemplates.id),
+  url: text("url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
