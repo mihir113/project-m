@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import { Modal } from "@/components/Modal";
@@ -34,6 +34,9 @@ export default function AIAssistantTab() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [saveLabel, setSaveLabel] = useState("");
   const [editingCommand, setEditingCommand] = useState<SavedCommand | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const { showToast } = useToast();
 
   // Load saved commands from localStorage
@@ -73,6 +76,64 @@ export default function AIAssistantTab() {
       localStorage.setItem("ai-quick-commands", JSON.stringify(savedCommands));
     }
   }, [savedCommands]);
+
+  // Speech recognition setup
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    setSpeechSupported(true);
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    recognition.onresult = (event: any) => {
+      let finalTranscript = "";
+      let interimTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+      if (finalTranscript) {
+        setPrompt((prev) => (prev ? prev + " " + finalTranscript : finalTranscript));
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error !== "aborted") {
+        showToast(`Voice input error: ${event.error}`, "error");
+      }
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+    return () => {
+      recognition.stop();
+    };
+  }, []);
+
+  const toggleListening = useCallback(() => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+
+    if (isListening) {
+      recognition.stop();
+    } else {
+      recognition.start();
+      setIsListening(true);
+    }
+  }, [isListening]);
 
   const handleSubmit = async (e: React.FormEvent, skipPreview = false) => {
     e.preventDefault();
@@ -203,6 +264,34 @@ export default function AIAssistantTab() {
             disabled={loading}
           />
           <div className="flex gap-2">
+            {speechSupported && (
+              <button
+                type="button"
+                onClick={toggleListening}
+                className={`btn-ghost relative ${isListening ? "text-red-400" : ""}`}
+                disabled={loading}
+                title={isListening ? "Stop listening" : "Voice input"}
+              >
+                {isListening && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                )}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" x2="12" y1="19" y2="22" />
+                </svg>
+              </button>
+            )}
             <button
               type="submit"
               className="btn-primary flex-1"
