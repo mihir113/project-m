@@ -37,6 +37,7 @@ export default function AIAssistantTab() {
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const basePromptRef = useRef("");
   const { showToast } = useToast();
 
   // Load saved commands from localStorage
@@ -90,19 +91,12 @@ export default function AIAssistantTab() {
     recognition.lang = "en-US";
 
     recognition.onresult = (event: any) => {
-      let finalTranscript = "";
-      let interimTranscript = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
+      let fullTranscript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        fullTranscript += event.results[i][0].transcript;
       }
-      if (finalTranscript) {
-        setPrompt((prev) => (prev ? prev + " " + finalTranscript : finalTranscript));
-      }
+      const base = basePromptRef.current;
+      setPrompt(base ? base + " " + fullTranscript.trim() : fullTranscript.trim());
     };
 
     recognition.onerror = (event: any) => {
@@ -130,10 +124,11 @@ export default function AIAssistantTab() {
     if (isListening) {
       recognition.stop();
     } else {
+      basePromptRef.current = prompt;
       recognition.start();
       setIsListening(true);
     }
-  }, [isListening]);
+  }, [isListening, prompt]);
 
   const handleSubmit = async (e: React.FormEvent, skipPreview = false) => {
     e.preventDefault();
