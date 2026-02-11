@@ -37,7 +37,7 @@ export default function AIAssistantTab() {
   const [isListening, setIsListening] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
-  const basePromptRef = useRef("");
+  const listeningRef = useRef(false);
   const { showToast } = useToast();
 
   // Load saved commands from localStorage
@@ -86,28 +86,33 @@ export default function AIAssistantTab() {
     setSpeechSupported(true);
 
     const recognition = new SpeechRecognition();
-    recognition.continuous = true;
-    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.interimResults = false;
     recognition.lang = "en-US";
 
     recognition.onresult = (event: any) => {
-      let fullTranscript = "";
-      for (let i = 0; i < event.results.length; i++) {
-        fullTranscript += event.results[i][0].transcript;
+      const transcript = event.results[0][0].transcript.trim();
+      if (transcript) {
+        setPrompt((prev) => (prev ? prev + " " + transcript : transcript));
       }
-      const base = basePromptRef.current;
-      setPrompt(base ? base + " " + fullTranscript.trim() : fullTranscript.trim());
     };
 
     recognition.onerror = (event: any) => {
-      if (event.error !== "aborted") {
+      if (event.error !== "aborted" && event.error !== "no-speech") {
         showToast(`Voice input error: ${event.error}`, "error");
       }
-      setIsListening(false);
+      if (event.error !== "no-speech" || !listeningRef.current) {
+        listeningRef.current = false;
+        setIsListening(false);
+      }
     };
 
     recognition.onend = () => {
-      setIsListening(false);
+      if (listeningRef.current) {
+        try { recognition.start(); } catch (_) {}
+      } else {
+        setIsListening(false);
+      }
     };
 
     recognitionRef.current = recognition;
@@ -122,13 +127,14 @@ export default function AIAssistantTab() {
     if (!recognition) return;
 
     if (isListening) {
+      listeningRef.current = false;
       recognition.stop();
     } else {
-      basePromptRef.current = prompt;
-      recognition.start();
+      listeningRef.current = true;
       setIsListening(true);
+      recognition.start();
     }
-  }, [isListening, prompt]);
+  }, [isListening]);
 
   const handleSubmit = async (e: React.FormEvent, skipPreview = false) => {
     e.preventDefault();
@@ -250,14 +256,29 @@ export default function AIAssistantTab() {
           <label className="text-xs text-muted mb-2 block">
             What would you like to do?
           </label>
-          <textarea
-            className="input-field mb-4"
-            rows={4}
-            placeholder="e.g., Create a quarterly review template, make a project called 'Q1 Goals', and assign it to Mihir"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            disabled={loading}
-          />
+          <div className="relative">
+            <textarea
+              className="input-field mb-4 pr-8"
+              rows={4}
+              placeholder="e.g., Create a quarterly review template, make a project called 'Q1 Goals', and assign it to Mihir"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              disabled={loading}
+            />
+            {prompt && !loading && (
+              <button
+                type="button"
+                onClick={() => setPrompt("")}
+                className="absolute top-2 right-2 text-muted hover:text-primary transition-colors"
+                title="Clear text"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
           <div className="flex gap-2">
             {speechSupported && (
               <button
