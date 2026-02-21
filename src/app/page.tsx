@@ -20,8 +20,12 @@ interface ProjectWithCounts {
 interface TaskItem {
   id: string;
   name: string;
+  description: string | null;
   status: string;
   dueDate: string | null;
+  ownerId: string | null;
+  ownerNick: string | null;
+  url: string | null;
   projectName: string | null;
   projectColor: string | null;
   projectId: string;
@@ -157,6 +161,12 @@ export default function DashboardPage() {
   });
   const [completingTask, setCompletingTask] = useState<string | null>(null);
 
+  // Edit task modal state
+  const [editTaskModalOpen, setEditTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
+  const [editTaskForm, setEditTaskForm] = useState({ name: "", description: "", dueDate: "", ownerId: "", url: "" });
+  const [savingEditTask, setSavingEditTask] = useState(false);
+
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectWithCounts | null>(null);
@@ -284,6 +294,63 @@ export default function DashboardPage() {
       showToast("Failed to complete task", "error");
     } finally {
       setCompletingTask(null);
+    }
+  };
+
+  const openEditTask = (task: TaskItem, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingTask(task);
+    setEditTaskForm({
+      name: task.name,
+      description: task.description || "",
+      dueDate: task.dueDate || "",
+      ownerId: task.ownerId || "",
+      url: task.url || "",
+    });
+    setEditTaskModalOpen(true);
+  };
+
+  const handleSaveEditTask = async () => {
+    if (!editingTask || !editTaskForm.name.trim()) return;
+    setSavingEditTask(true);
+    try {
+      await fetch("/api/requirements", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingTask.id,
+          name: editTaskForm.name.trim(),
+          description: editTaskForm.description.trim() || null,
+          dueDate: editTaskForm.dueDate || null,
+          ownerId: editTaskForm.ownerId || null,
+          url: editTaskForm.url.trim() || null,
+        }),
+      });
+      showToast("Task updated", "success");
+      setEditTaskModalOpen(false);
+      await fetchData();
+    } catch {
+      showToast("Failed to update task", "error");
+    } finally {
+      setSavingEditTask(false);
+    }
+  };
+
+  const handleDeleteTaskFromEdit = async () => {
+    if (!editingTask) return;
+    if (!confirm(`Are you sure you want to delete "${editingTask.name}"?`)) return;
+    try {
+      await fetch("/api/requirements", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: editingTask.id }),
+      });
+      showToast("Task deleted", "success");
+      setEditTaskModalOpen(false);
+      await fetchData();
+    } catch {
+      showToast("Failed to delete task", "error");
     }
   };
 
@@ -844,9 +911,13 @@ export default function DashboardPage() {
                                           </svg>
                                         )}
                                       </button>
-                                      <span className="text-[10px] text-primary truncate flex-1 leading-tight">
+                                      <button
+                                        onClick={(e) => openEditTask(task, e)}
+                                        className="text-[10px] text-primary truncate flex-1 leading-tight text-left hover:underline cursor-pointer"
+                                        title="Edit task"
+                                      >
                                         {task.name}
-                                      </span>
+                                      </button>
                                       {task.dueDate && (
                                         <span
                                           className="text-[9px] tabular-nums flex-shrink-0"
@@ -1156,6 +1227,89 @@ export default function DashboardPage() {
             >
               {savingTask ? "Adding..." : "Add Task"}
             </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ─── Edit Task Modal ─── */}
+      <Modal
+        open={editTaskModalOpen}
+        onClose={() => setEditTaskModalOpen(false)}
+        title="Edit Task"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted mb-1 block">Task Name</label>
+            <input
+              className="input-field"
+              value={editTaskForm.name}
+              onChange={(e) => setEditTaskForm({ ...editTaskForm, name: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Description (optional)</label>
+            <textarea
+              className="input-field"
+              rows={2}
+              value={editTaskForm.description}
+              onChange={(e) => setEditTaskForm({ ...editTaskForm, description: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Due Date</label>
+            <input
+              type="date"
+              className="input-field"
+              value={editTaskForm.dueDate}
+              onChange={(e) => setEditTaskForm({ ...editTaskForm, dueDate: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">Owner (optional)</label>
+            <select
+              className="input-field"
+              value={editTaskForm.ownerId}
+              onChange={(e) => setEditTaskForm({ ...editTaskForm, ownerId: e.target.value })}
+            >
+              <option value="">Unassigned</option>
+              {teamMembers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nick} — {m.role}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted mb-1 block">URL (optional)</label>
+            <input
+              className="input-field"
+              type="url"
+              placeholder="https://..."
+              value={editTaskForm.url}
+              onChange={(e) => setEditTaskForm({ ...editTaskForm, url: e.target.value })}
+            />
+          </div>
+
+          <div className="flex justify-between gap-2 pt-2">
+            <button className="btn-danger" onClick={handleDeleteTaskFromEdit}>
+              Delete Task
+            </button>
+            <div className="flex gap-2">
+              <button className="btn-ghost" onClick={() => setEditTaskModalOpen(false)}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleSaveEditTask}
+                disabled={savingEditTask || !editTaskForm.name.trim()}
+              >
+                {savingEditTask ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       </Modal>
