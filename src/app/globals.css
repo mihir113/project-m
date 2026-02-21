@@ -322,16 +322,11 @@
       radial-gradient(ellipse 450px 350px at 20% 75%, rgba(79, 111, 245, 0.05), transparent);
   }
 
-  /* Larger fonts on desktop monitors */
-  @media (min-width: 1280px) {
+  /* 125% zoom on desktop dashboard only */
+  @media (min-width: 768px) {
     .dashboard-bg {
-      font-size: 1.0625rem;
+      zoom: 1.25;
     }
-    .dashboard-bg .text-2xl { font-size: 1.625rem; }
-    .dashboard-bg .text-lg { font-size: 1.1875rem; }
-    .dashboard-bg .text-base { font-size: 1.0625rem; }
-    .dashboard-bg .text-sm { font-size: 0.9375rem; }
-    .dashboard-bg .text-xs { font-size: 0.8125rem; }
   }
 
   /* Status badges */
