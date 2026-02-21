@@ -110,6 +110,35 @@ function CategoryIcon({ index, color, active }: { index: number; color: string; 
   );
 }
 
+// ─── Helpers ───
+function isOverdue(dueDate: string | null): boolean {
+  if (!dueDate) return false;
+  return new Date(dueDate + "T23:59:59") < new Date();
+}
+
+function formatShortDate(dueDate: string | null): string {
+  if (!dueDate) return "";
+  const d = new Date(dueDate + "T00:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function playCompletionSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    [520, 780].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.18, ctx.currentTime + i * 0.12);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.3);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + i * 0.12);
+      osc.stop(ctx.currentTime + i * 0.12 + 0.3);
+    });
+  } catch {}
+}
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectWithCounts[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -117,6 +146,16 @@ export default function DashboardPage() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [focusMode, setFocusMode] = useState(true);
   const { showToast } = useToast();
+
+  // Collapsed projects (tasks hidden) — persisted in localStorage
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const saved = localStorage.getItem("dashboard-collapsed-projects");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
+  const [completingTask, setCompletingTask] = useState<string | null>(null);
 
   // Modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -197,6 +236,56 @@ export default function DashboardPage() {
       })
       .slice(0, 3);
   }, [tasks]);
+
+  // Group open tasks by project for inline display
+  const tasksByProject = useMemo(() => {
+    const map: Record<string, TaskItem[]> = {};
+    for (const t of tasks) {
+      if (t.status !== "pending" && t.status !== "overdue") continue;
+      if (!map[t.projectId]) map[t.projectId] = [];
+      map[t.projectId].push(t);
+    }
+    // Sort each group by due date
+    for (const pid of Object.keys(map)) {
+      map[pid].sort((a, b) => {
+        if (!a.dueDate) return 1;
+        if (!b.dueDate) return -1;
+        return a.dueDate.localeCompare(b.dueDate);
+      });
+    }
+    return map;
+  }, [tasks]);
+
+  const toggleProjectTasks = (projectId: string) => {
+    setCollapsedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      localStorage.setItem("dashboard-collapsed-projects", JSON.stringify([...next]));
+      return next;
+    });
+  };
+
+  const handleCompleteTask = async (taskId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCompletingTask(taskId);
+    try {
+      await fetch("/api/requirements", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: taskId, status: "completed" }),
+      });
+      playCompletionSound();
+      if (navigator.vibrate) navigator.vibrate(80);
+      showToast("Task completed", "success");
+      await fetchData();
+    } catch {
+      showToast("Failed to complete task", "error");
+    } finally {
+      setCompletingTask(null);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -657,67 +746,123 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Project Rows */}
+                    {/* Project Rows with Inline Tasks */}
                     <div className="px-2 pb-2.5 space-y-0.5">
-                      {catProjects.slice(0, 3).map((project) => {
+                      {catProjects.map((project) => {
                         const projPct =
                           project.totalRequirements > 0
                             ? Math.round(
                                 (project.completedRequirements / project.totalRequirements) * 100
                               )
                             : 100;
+                        const openTasks = tasksByProject[project.id] || [];
+                        const isCollapsed = collapsedProjects.has(project.id);
                         return (
-                          <Link
-                            key={project.id}
-                            href={`/projects/${project.id}`}
-                            className="mosaic-row group"
-                          >
-                            <div
-                              className="w-[3px] h-6 rounded-full flex-shrink-0 transition-opacity"
-                              style={{
-                                backgroundColor: color,
-                                opacity: project.status === "completed" ? 0.25 : 0.65,
-                              }}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[11px] font-medium text-primary truncate leading-tight group-hover:text-accent-blue transition-colors">
-                                {project.name}
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <div
-                                  className="h-[2px] rounded-full bg-tertiary flex-1"
-                                  style={{ maxWidth: 64 }}
+                          <div key={project.id}>
+                            {/* Project Header Row */}
+                            <div className="mosaic-row group flex items-center gap-2">
+                              {/* Expand/Collapse chevron */}
+                              {openTasks.length > 0 ? (
+                                <button
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleProjectTasks(project.id); }}
+                                  className="flex-shrink-0 p-0.5 rounded hover:bg-tertiary transition-colors"
+                                  title={isCollapsed ? "Show tasks" : "Hide tasks"}
                                 >
+                                  <svg
+                                    width="12" height="12" viewBox="0 0 12 12"
+                                    className="text-muted transition-transform duration-200"
+                                    style={{ transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                                  >
+                                    <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                </button>
+                              ) : (
+                                <div className="w-[16px] flex-shrink-0" />
+                              )}
+                              <div
+                                className="w-[3px] h-6 rounded-full flex-shrink-0 transition-opacity"
+                                style={{
+                                  backgroundColor: color,
+                                  opacity: project.status === "completed" ? 0.25 : 0.65,
+                                }}
+                              />
+                              <Link
+                                href={`/projects/${project.id}`}
+                                className="min-w-0 flex-1 no-underline"
+                              >
+                                <p className="text-[11px] font-medium text-primary truncate leading-tight group-hover:text-accent-blue transition-colors">
+                                  {project.name}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
                                   <div
-                                    className="h-full rounded-full transition-all duration-500"
-                                    style={{
-                                      width: `${projPct}%`,
-                                      backgroundColor: color,
-                                    }}
-                                  />
+                                    className="h-[2px] rounded-full bg-tertiary flex-1"
+                                    style={{ maxWidth: 64 }}
+                                  >
+                                    <div
+                                      className="h-full rounded-full transition-all duration-500"
+                                      style={{
+                                        width: `${projPct}%`,
+                                        backgroundColor: color,
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-[9px] text-muted tabular-nums">
+                                    {project.completedRequirements}/{project.totalRequirements}
+                                  </span>
                                 </div>
-                                <span className="text-[9px] text-muted tabular-nums">
-                                  {project.completedRequirements}/{project.totalRequirements}
-                                </span>
-                              </div>
+                              </Link>
+                              <Sparkline
+                                completed={project.completedRequirements}
+                                total={project.totalRequirements}
+                                color={color}
+                              />
                             </div>
-                            <Sparkline
-                              completed={project.completedRequirements}
-                              total={project.totalRequirements}
-                              color={color}
-                            />
-                          </Link>
+
+                            {/* Inline Open Tasks */}
+                            {openTasks.length > 0 && !isCollapsed && (
+                              <div className="ml-[35px] pl-2 border-l border-default space-y-px mb-1">
+                                {openTasks.map((task) => {
+                                  const overdue = task.status === "overdue" || isOverdue(task.dueDate);
+                                  return (
+                                    <div
+                                      key={task.id}
+                                      className="flex items-center gap-1.5 py-[3px] px-1.5 rounded hover:bg-tertiary transition-colors group/task"
+                                    >
+                                      <button
+                                        onClick={(e) => handleCompleteTask(task.id, e)}
+                                        disabled={completingTask === task.id}
+                                        className="flex-shrink-0 w-[14px] h-[14px] rounded-full border-[1.5px] flex items-center justify-center transition-colors"
+                                        style={{
+                                          borderColor: completingTask === task.id ? "#10b981" : overdue ? "#f87171" : "var(--border-default)",
+                                          backgroundColor: completingTask === task.id ? "#10b981" : "transparent",
+                                        }}
+                                        title="Mark complete"
+                                      >
+                                        {completingTask === task.id && (
+                                          <svg width="8" height="8" viewBox="0 0 8 8">
+                                            <path d="M1.5 4L3.5 6L6.5 2" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                          </svg>
+                                        )}
+                                      </button>
+                                      <span className="text-[10px] text-primary truncate flex-1 leading-tight">
+                                        {task.name}
+                                      </span>
+                                      {task.dueDate && (
+                                        <span
+                                          className="text-[9px] tabular-nums flex-shrink-0"
+                                          style={{ color: overdue ? "#f87171" : "var(--text-muted)" }}
+                                        >
+                                          {formatShortDate(task.dueDate)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
-                      {catProjects.length > 3 && (
-                        <Link
-                          href="/projects"
-                          className="block text-[9px] text-muted text-center pt-1 hover:text-primary transition-colors"
-                          style={{ textDecoration: "none" }}
-                        >
-                          +{catProjects.length - 3} more
-                        </Link>
-                      )}
                     </div>
                   </div>
                 );
