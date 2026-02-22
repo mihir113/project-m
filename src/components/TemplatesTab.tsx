@@ -38,6 +38,15 @@ export default function TemplatesTab() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", description: "" });
 
+  // ── Template propagation state ──
+  const [syncModal, setSyncModal] = useState<{
+    open: boolean;
+    affectedCount: number;
+    templateId: string;
+    actionLabel: string; // "goal" or "goal area"
+  } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+
   const fetchTemplates = useCallback(async () => {
     try {
       const res = await fetch("/api/check-in-templates");
@@ -59,6 +68,44 @@ export default function TemplatesTab() {
       setActiveTemplate(json.data);
     } catch {
       showToast("Failed to load template", "error");
+    }
+  };
+
+  // After adding a goal or goal area, check if active snapshots use this template
+  // and offer to sync if they do.
+  const checkAndOfferSync = async (templateId: string, actionLabel: string) => {
+    try {
+      const res = await fetch(`/api/performance-snapshots/sync-template?templateId=${templateId}`);
+      const json = await res.json();
+      const count: number = json.data?.count ?? 0;
+      if (count > 0) {
+        setSyncModal({ open: true, affectedCount: count, templateId, actionLabel });
+      }
+    } catch {
+      // Non-critical — don't block the user if this check fails
+    }
+  };
+
+  const handleSyncConfirm = async () => {
+    if (!syncModal) return;
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/performance-snapshots/sync-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: syncModal.templateId }),
+      });
+      const json = await res.json();
+      const updated = json.data?.updated ?? 0;
+      showToast(
+        `Synced to ${updated} active performance snapshot${updated !== 1 ? "s" : ""}`,
+        "success"
+      );
+    } catch {
+      showToast("Sync failed", "error");
+    } finally {
+      setSyncing(false);
+      setSyncModal(null);
     }
   };
 
@@ -110,6 +157,8 @@ export default function TemplatesTab() {
       if (!res.ok) { showToast(json.error || "Failed", "error"); return; }
       showToast("Goal area added", "success");
       await loadTemplate(activeTemplate.id);
+      // Offer to sync to active performance snapshots
+      await checkAndOfferSync(activeTemplate.id, "goal area");
     } catch {
       showToast("Failed to add goal area", "error");
     }
@@ -155,6 +204,8 @@ export default function TemplatesTab() {
       if (!res.ok) { showToast("Failed", "error"); return; }
       showToast("Goal added", "success");
       await loadTemplate(activeTemplate.id);
+      // Offer to sync to active performance snapshots
+      await checkAndOfferSync(activeTemplate.id, "goal");
     } catch {
       showToast("Failed to add goal", "error");
     }
@@ -321,6 +372,53 @@ export default function TemplatesTab() {
             ))}
           </div>
         )}
+
+        {/* ── Template Propagation Sync Modal ── */}
+        {syncModal && (
+          <Modal
+            open={syncModal.open}
+            onClose={() => setSyncModal(null)}
+            title="Sync to Engineer Tracks?"
+          >
+            <div className="space-y-4">
+              <div
+                className="rounded-lg p-4 border"
+                style={{
+                  borderColor: "rgba(79,111,245,0.3)",
+                  backgroundColor: "rgba(79,111,245,0.05)",
+                }}
+              >
+                <p className="text-secondary text-sm">
+                  You added a new <strong className="text-primary">{syncModal.actionLabel}</strong> to this
+                  template. There {syncModal.affectedCount === 1 ? "is" : "are"}{" "}
+                  <strong className="text-primary">{syncModal.affectedCount}</strong> active performance
+                  snapshot{syncModal.affectedCount !== 1 ? "s" : ""} linked to this IC track.
+                </p>
+              </div>
+              <p className="text-secondary text-sm">
+                Would you like to mark those snapshots as updated so engineers on this track know
+                the template has changed? Their snapshot version will be bumped and they will see
+                the latest goals on their next review.
+              </p>
+              <p className="text-muted text-xs">
+                This does not modify any existing observations or AI syntheses — it only signals
+                that a template update occurred.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <button className="btn-ghost" onClick={() => setSyncModal(null)}>
+                  Skip
+                </button>
+                <button
+                  className="btn-primary"
+                  onClick={handleSyncConfirm}
+                  disabled={syncing}
+                >
+                  {syncing ? "Syncing..." : `Sync to ${syncModal.affectedCount} Snapshot${syncModal.affectedCount !== 1 ? "s" : ""}`}
+                </button>
+              </div>
+            </div>
+          </Modal>
+        )}
       </div>
     );
   }
@@ -363,7 +461,7 @@ export default function TemplatesTab() {
             <label className="text-xs text-muted mb-1 block">Template Name</label>
             <input
               className="input-field"
-              placeholder="e.g. Check-In"
+              placeholder="e.g. IC4 Track"
               value={createForm.name}
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
             />
@@ -372,7 +470,7 @@ export default function TemplatesTab() {
             <label className="text-xs text-muted mb-1 block">Description (optional)</label>
             <input
               className="input-field"
-              placeholder="e.g. Quarterly engineer check-in"
+              placeholder="e.g. IC4 engineer expectations"
               value={createForm.description}
               onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
             />

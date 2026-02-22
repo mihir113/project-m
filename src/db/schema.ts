@@ -261,11 +261,65 @@ export const aiAutomations = pgTable("ai_automations", {
 });
 
 // ─────────────────────────────────────────────
+// TABLE: performance_snapshots
+// Tracks engineer progress against IC level templates per quarter
+// ─────────────────────────────────────────────
+export const performanceSnapshots = pgTable("performance_snapshots", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  memberId: uuid("member_id")
+    .references(() => teamMembers.id, { onDelete: "cascade" })
+    .notNull(),
+  templateId: uuid("template_id").references(() => checkInTemplates.id, {
+    onDelete: "set null",
+  }),
+  quarter: text("quarter").notNull(), // e.g. "2026-Q1"
+  managerNotes: text("manager_notes"),
+  aiSynthesis: text("ai_synthesis"),
+  status: text("status").default("draft").notNull(), // "draft" | "finalized"
+  version: integer("version").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
+// TABLE: manager_observations
+// Raw manager notes about engineers throughout the quarter
+// ─────────────────────────────────────────────
+export const managerObservations = pgTable("manager_observations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  memberId: uuid("member_id")
+    .references(() => teamMembers.id, { onDelete: "cascade" })
+    .notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
 // RELATIONS
 // ─────────────────────────────────────────────
 export const teamMembersRelations = relations(teamMembers, ({ many }) => ({
   submissions: many(submissions),
   ownedRequirements: many(requirements),
+  performanceSnapshots: many(performanceSnapshots),
+  managerObservations: many(managerObservations),
+}));
+
+export const performanceSnapshotsRelations = relations(performanceSnapshots, ({ one }) => ({
+  member: one(teamMembers, {
+    fields: [performanceSnapshots.memberId],
+    references: [teamMembers.id],
+  }),
+  template: one(checkInTemplates, {
+    fields: [performanceSnapshots.templateId],
+    references: [checkInTemplates.id],
+  }),
+}));
+
+export const managerObservationsRelations = relations(managerObservations, ({ one }) => ({
+  member: one(teamMembers, {
+    fields: [managerObservations.memberId],
+    references: [teamMembers.id],
+  }),
 }));
 
 export const projectsRelations = relations(projects, ({ many }) => ({

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/Toast";
 import Papa from "papaparse";
 
@@ -10,8 +11,56 @@ interface TeamMember {
   role: string;
 }
 
+interface EquityScore {
+  memberId: string;
+  nick: string;
+  role: string;
+  observationCount: number;
+  lastObservationDate: string | null;
+  managerCommentCount: number;
+  daysSinceLastInteraction: number;
+  score: number; // 0-100, lower = needs more attention
+}
+
+// ── Attention Meter component ────────────────────────────────────────────────
+// score: 0-100 (lower = red = needs attention)
+function AttentionMeter({ score, days }: { score: number; days: number }) {
+  const color =
+    score < 25
+      ? "#f87171"  // red — critical
+      : score < 50
+      ? "#fbbf24"  // amber — low
+      : score < 75
+      ? "#60a5fa"  // blue — moderate
+      : "#34d399"; // green — good
+
+  const label =
+    score < 25 ? "Low" : score < 50 ? "Moderate" : score < 75 ? "Good" : "Strong";
+
+  return (
+    <div className="flex items-center gap-2" title={`${label} attention — ${days}d since last interaction`}>
+      {/* Bar */}
+      <div
+        className="rounded-full overflow-hidden"
+        style={{ width: "48px", height: "5px", backgroundColor: "var(--bg-tertiary)" }}
+      >
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${score}%`, backgroundColor: color }}
+        />
+      </div>
+      {/* Days badge */}
+      <span className="text-xs" style={{ color, minWidth: "28px" }}>
+        {days >= 31 ? "31+" : days}d
+      </span>
+    </div>
+  );
+}
+
 export default function TeamPage() {
+  const router = useRouter();
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [equityScores, setEquityScores] = useState<EquityScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [nick, setNick] = useState("");
   const [role, setRole] = useState("");
@@ -43,12 +92,17 @@ export default function TeamPage() {
     });
   };
 
-  // Fetch team members
-  const fetchMembers = async () => {
+  // Fetch team members and equity scores
+  const fetchAll = async () => {
     try {
-      const res = await fetch("/api/team");
-      const json = await res.json();
-      setMembers(json.data || []);
+      const [membersRes, equityRes] = await Promise.all([
+        fetch("/api/team"),
+        fetch("/api/management-equity"),
+      ]);
+      const membersJson = await membersRes.json();
+      const equityJson = await equityRes.json();
+      setMembers(membersJson.data || []);
+      setEquityScores(equityJson.data || []);
     } catch {
       showToast("Failed to load team", "error");
     } finally {
@@ -57,8 +111,11 @@ export default function TeamPage() {
   };
 
   useEffect(() => {
-    fetchMembers();
+    fetchAll();
   }, []);
+
+  const getEquity = (memberId: string): EquityScore | undefined =>
+    equityScores.find((e) => e.memberId === memberId);
 
   // ── Manual Add ──
   const handleAdd = async () => {
@@ -78,7 +135,7 @@ export default function TeamPage() {
       showToast(`Added "${nick.trim()}" to the team`, "success");
       setNick("");
       setRole("");
-      await fetchMembers();
+      await fetchAll();
     } finally {
       setAdding(false);
     }
@@ -90,7 +147,7 @@ export default function TeamPage() {
     try {
       await fetch(`/api/team?id=${id}`, { method: "DELETE" });
       showToast(`Removed "${name}"`, "success");
-      await fetchMembers();
+      await fetchAll();
     } catch {
       showToast("Failed to delete", "error");
     }
@@ -127,7 +184,6 @@ export default function TeamPage() {
       },
     });
 
-    // Reset file input so same file can be re-uploaded if needed
     e.target.value = "";
   };
 
@@ -151,7 +207,7 @@ export default function TeamPage() {
       }
       setCsvPreview([]);
       setCsvErrors([]);
-      await fetchMembers();
+      await fetchAll();
     } catch {
       showToast("Import failed", "error");
     } finally {
@@ -159,16 +215,71 @@ export default function TeamPage() {
     }
   };
 
-  // ─── RENDER ───
+  // ── Compute nudges: 3 members with lowest scores ──
+  const nudges = equityScores.slice(0, 3).filter((e) => e.score < 75);
+
+  // ─── RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className="animate-fadeIn">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-primary">Team</h1>
         <p className="text-secondary text-sm mt-1">
-          Your team roster. Members are a reference — they don't log in.
+          Your team roster. Click a name to open the performance workbench.
         </p>
       </div>
+
+      {/* ── Manager Nudges card ── */}
+      {!loading && nudges.length > 0 && (
+        <div
+          className="card p-5 mb-6"
+          style={{
+            borderColor: "rgba(251,191,36,0.35)",
+            backgroundColor: "rgba(251,191,36,0.04)",
+          }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <span style={{ color: "#fbbf24", fontSize: "16px" }}>⚠</span>
+            <h2 className="text-sm font-semibold" style={{ color: "#fbbf24" }}>
+              Manager Nudges
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {nudges.map((nudge) => {
+              const daysText =
+                nudge.daysSinceLastInteraction >= 31
+                  ? "over 30 days"
+                  : `${nudge.daysSinceLastInteraction} day${nudge.daysSinceLastInteraction !== 1 ? "s" : ""}`;
+              const totalInteractions = nudge.observationCount + nudge.managerCommentCount;
+              const message =
+                totalInteractions === 0
+                  ? `You haven't logged any notes for ${nudge.nick} in the last 30 days.`
+                  : `You last interacted with ${nudge.nick} ${daysText} ago (${totalInteractions} note${totalInteractions !== 1 ? "s" : ""} this month).`;
+
+              return (
+                <div
+                  key={nudge.memberId}
+                  className="flex items-center justify-between rounded-lg px-3 py-2.5 border border-default cursor-pointer hover:border-focus transition-colors"
+                  style={{ backgroundColor: "var(--bg-tertiary)" }}
+                  onClick={() => router.push(`/team/${nudge.memberId}`)}
+                >
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{
+                        backgroundColor:
+                          nudge.score < 25 ? "#f87171" : "#fbbf24",
+                      }}
+                    />
+                    <p className="text-secondary text-sm">{message}</p>
+                  </div>
+                  <span className="text-xs text-muted flex-shrink-0 ml-3">Check in →</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="grid md:grid-cols-3 gap-6">
         {/* ── Left: Add form + CSV import ── */}
@@ -223,7 +334,6 @@ export default function TeamPage() {
               />
             </label>
 
-            {/* Validation errors */}
             {csvErrors.length > 0 && (
               <div className="mt-3 space-y-1">
                 {csvErrors.map((err, i) => (
@@ -232,7 +342,6 @@ export default function TeamPage() {
               </div>
             )}
 
-            {/* Preview table */}
             {csvPreview.length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-secondary mb-2">
@@ -289,6 +398,24 @@ export default function TeamPage() {
             <h2 className="text-sm font-semibold text-primary">
               Roster ({members.length})
             </h2>
+            <div className="flex items-center gap-3 text-xs text-muted">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: "#34d399" }} />
+                Strong
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: "#60a5fa" }} />
+                Good
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: "#fbbf24" }} />
+                Low
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: "#f87171" }} />
+                Critical
+              </span>
+            </div>
           </div>
 
           {loading ? (
@@ -334,25 +461,40 @@ export default function TeamPage() {
                           <thead>
                             <tr style={{ backgroundColor: "#1e2130" }}>
                               <th className="text-left px-4 py-2.5 text-muted text-xs font-medium uppercase tracking-wide">Nick</th>
+                              <th className="px-4 py-2.5 text-muted text-xs font-medium uppercase tracking-wide text-left">Attention</th>
                               <th className="px-4 py-2.5"></th>
                             </tr>
                           </thead>
                           <tbody>
-                            {roleMembers.map((m) => (
-                              <tr key={m.id} className="border-t border-default hover:bg-tertiary transition-colors">
-                                <td className="px-4 py-3">
-                                  <p className="text-primary text-sm font-medium">{m.nick}</p>
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  <button
-                                    className="btn-danger text-xs"
-                                    onClick={() => handleDelete(m.id, m.nick)}
-                                  >
-                                    Remove
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
+                            {roleMembers.map((m) => {
+                              const eq = getEquity(m.id);
+                              return (
+                                <tr
+                                  key={m.id}
+                                  className="border-t border-default hover:bg-tertiary transition-colors cursor-pointer"
+                                  onClick={() => router.push(`/team/${m.id}`)}
+                                >
+                                  <td className="px-4 py-3">
+                                    <p className="text-primary text-sm font-medium hover:underline">{m.nick}</p>
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    {eq ? (
+                                      <AttentionMeter score={eq.score} days={eq.daysSinceLastInteraction} />
+                                    ) : (
+                                      <span className="text-muted text-xs">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      className="btn-danger text-xs"
+                                      onClick={() => handleDelete(m.id, m.nick)}
+                                    >
+                                      Remove
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>

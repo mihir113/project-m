@@ -4,8 +4,15 @@ import { teamMembers } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
 // GET /api/team — returns all team members
-export async function GET() {
+// GET /api/team?id=<uuid> — returns a single team member
+export async function GET(req: NextRequest) {
   try {
+    const id = req.nextUrl.searchParams.get("id");
+    if (id) {
+      const [member] = await db.select().from(teamMembers).where(eq(teamMembers.id, id));
+      if (!member) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ data: member });
+    }
     const members = await db.select().from(teamMembers).orderBy(teamMembers.nick);
     return NextResponse.json({ data: members });
   } catch (err) {
