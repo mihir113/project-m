@@ -480,6 +480,13 @@ export default function TeamPage() {
                                   <td className="px-4 py-3">
                                     {eq ? (
                                       <AttentionMeter score={eq.score} days={eq.daysSinceLastInteraction} />
+                                    ) : m.role.trim().toLowerCase() !== "direct" ? (
+                                      <span
+                                        className="text-[10px] px-1.5 py-0.5 rounded text-muted"
+                                        style={{ backgroundColor: "var(--bg-tertiary)" }}
+                                      >
+                                        Not tracked
+                                      </span>
                                     ) : (
                                       <span className="text-muted text-xs">—</span>
                                     )}

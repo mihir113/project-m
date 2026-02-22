@@ -20,14 +20,18 @@ export interface EquityScore {
 }
 
 // GET /api/management-equity
-// Returns attention scores for all team members based on the last 30 days
+// Returns attention scores for Direct-role team members based on the last 30 days.
+// "Admin" and "Boss" roles are excluded; only "Direct" members are tracked.
 export async function GET(_req: NextRequest) {
   try {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Fetch all team members
-    const members = await db.select().from(teamMembers);
+    // Only track Direct reports — exclude Admin, Boss, and any other non-Direct roles
+    const allMembers = await db.select().from(teamMembers);
+    const members = allMembers.filter(
+      (m) => m.role.trim().toLowerCase() === "direct"
+    );
 
     // Fetch observations from last 30 days
     const recentObservations = await db

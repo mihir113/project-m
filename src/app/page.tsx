@@ -42,6 +42,17 @@ interface Template {
   name: string;
 }
 
+interface EquityScore {
+  memberId: string;
+  nick: string;
+  role: string;
+  observationCount: number;
+  lastObservationDate: string | null;
+  managerCommentCount: number;
+  daysSinceLastInteraction: number;
+  score: number;
+}
+
 const STATUS_OPTIONS = ["active", "on-hold", "completed"];
 
 // ─── Sparkline (deterministic mini area chart) ───
@@ -176,6 +187,14 @@ export default function DashboardPage() {
   // Task add modal state
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [equityScores, setEquityScores] = useState<EquityScore[]>([]);
+
+  // Team Pulse widget collapsed state
+  const [teamPulseCollapsed, setTeamPulseCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem("dashboard-team-pulse-collapsed") === "true"; }
+    catch { return false; }
+  });
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [taskForm, setTaskForm] = useState({
     projectId: "",
@@ -356,23 +375,26 @@ export default function DashboardPage() {
 
   const fetchData = async () => {
     try {
-      const [projRes, taskRes, teamRes, tmplRes] = await Promise.all([
+      const [projRes, taskRes, teamRes, tmplRes, equityRes] = await Promise.all([
         fetch("/api/projects"),
         fetch("/api/requirements"),
         fetch("/api/team"),
         fetch("/api/check-in-templates"),
+        fetch("/api/management-equity"),
       ]);
-      const [projJson, taskJson, teamJson, tmplJson] = await Promise.all([
+      const [projJson, taskJson, teamJson, tmplJson, equityJson] = await Promise.all([
         projRes.json(),
         taskRes.json(),
         teamRes.json(),
         tmplRes.json(),
+        equityRes.json(),
       ]);
       const projectsData = projJson.data || [];
       setProjects(projectsData);
       setTasks(taskJson.data || []);
       setTeamMembers(teamJson.data || []);
       setTemplates(tmplJson.data || []);
+      setEquityScores(equityJson.data || []);
       const uniqueCategories = Array.from(
         new Set(projectsData.map((p: ProjectWithCounts) => p.category).filter(Boolean))
       ) as string[];
@@ -642,6 +664,132 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {/* ─── Direct Reports Pulse ─── */}
+      {equityScores.length > 0 && (
+        <div className="mosaic-glass mb-3 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-[var(--border-default)]">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] uppercase tracking-widest text-muted font-semibold">
+                Direct Reports Pulse
+              </span>
+              <span
+                className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                style={{ backgroundColor: "rgba(79,111,245,0.15)", color: "#4f6ff5" }}
+              >
+                {equityScores.length}
+              </span>
+              {/* Nudge pills — show up to 2 low-attention names inline */}
+              {equityScores
+                .filter((e) => e.score < 50)
+                .slice(0, 2)
+                .map((e) => (
+                  <Link
+                    key={e.memberId}
+                    href={`/team/${e.memberId}`}
+                    className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium transition-opacity hover:opacity-80"
+                    style={{ backgroundColor: "rgba(251,191,36,0.15)", color: "#fbbf24", textDecoration: "none" }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: e.score < 25 ? "#f87171" : "#fbbf24" }}
+                    />
+                    {e.nick} · {e.daysSinceLastInteraction >= 31 ? "31+" : e.daysSinceLastInteraction}d
+                  </Link>
+                ))}
+            </div>
+            <button
+              onClick={() => {
+                const next = !teamPulseCollapsed;
+                setTeamPulseCollapsed(next);
+                localStorage.setItem("dashboard-team-pulse-collapsed", String(next));
+              }}
+              className="text-muted hover:text-primary transition-colors p-0.5"
+              title={teamPulseCollapsed ? "Expand" : "Collapse"}
+            >
+              <svg
+                width="12" height="12" viewBox="0 0 12 12"
+                className="transition-transform duration-200"
+                style={{ transform: teamPulseCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+              >
+                <path d="M3 4.5L6 7.5L9 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          {!teamPulseCollapsed && (
+            <div className="px-4 py-2">
+              {/* Nudge rows — only members with score < 75 */}
+              {equityScores.some((e) => e.score < 75) && (
+                <div className="mb-2 space-y-1">
+                  {equityScores
+                    .filter((e) => e.score < 75)
+                    .slice(0, 3)
+                    .map((e) => {
+                      const daysText = e.daysSinceLastInteraction >= 31
+                        ? "over 30 days"
+                        : `${e.daysSinceLastInteraction}d ago`;
+                      const total = e.observationCount + e.managerCommentCount;
+                      return (
+                        <Link
+                          key={e.memberId}
+                          href={`/team/${e.memberId}`}
+                          className="flex items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-tertiary"
+                          style={{ textDecoration: "none" }}
+                        >
+                          <div
+                            className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: e.score < 25 ? "#f87171" : "#fbbf24" }}
+                          />
+                          <span className="text-secondary text-xs flex-1 truncate">
+                            {total === 0
+                              ? `No notes logged for ${e.nick} in 30 days`
+                              : `${e.nick} — last interaction ${daysText}`}
+                          </span>
+                          <span className="text-muted text-[10px] flex-shrink-0">Check in →</span>
+                        </Link>
+                      );
+                    })}
+                </div>
+              )}
+
+              {/* Roster strip — all directs */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {equityScores.map((e) => {
+                  const color =
+                    e.score < 25 ? "#f87171"
+                    : e.score < 50 ? "#fbbf24"
+                    : e.score < 75 ? "#60a5fa"
+                    : "#34d399";
+                  return (
+                    <Link
+                      key={e.memberId}
+                      href={`/team/${e.memberId}`}
+                      className="flex items-center gap-2 min-w-[140px] hover:opacity-80 transition-opacity"
+                      style={{ textDecoration: "none" }}
+                    >
+                      <span className="text-primary text-[11px] font-medium w-16 truncate">{e.nick}</span>
+                      <div
+                        className="rounded-full overflow-hidden flex-shrink-0"
+                        style={{ width: "40px", height: "4px", backgroundColor: "var(--bg-tertiary)" }}
+                      >
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${e.score}%`, backgroundColor: color }}
+                        />
+                      </div>
+                      <span className="text-[10px] tabular-nums" style={{ color, minWidth: "24px" }}>
+                        {e.daysSinceLastInteraction >= 31 ? "31+" : e.daysSinceLastInteraction}d
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─── Focus Toggle (mobile) ─── */}
       <div className="flex md:hidden items-center justify-between mb-2">
