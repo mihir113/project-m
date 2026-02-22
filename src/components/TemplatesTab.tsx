@@ -38,6 +38,9 @@ export default function TemplatesTab() {
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ name: "", description: "" });
 
+  // Track which template IDs are currently being copied
+  const [copying, setCopying] = useState<Set<string>>(new Set());
+
   // ── Template propagation state ──
   const [syncModal, setSyncModal] = useState<{
     open: boolean;
@@ -138,6 +141,63 @@ export default function TemplatesTab() {
       await fetchTemplates();
     } catch {
       showToast("Failed to delete", "error");
+    }
+  };
+
+  const handleCopyTemplate = async (id: string, name: string) => {
+    setCopying((prev) => new Set(prev).add(id));
+    try {
+      // 1. Fetch the full template with all goal areas + goals
+      const res = await fetch(`/api/check-in-templates?id=${id}`);
+      const json = await res.json();
+      if (!res.ok) { showToast("Failed to load template", "error"); return; }
+      const source: Template = json.data;
+
+      // 2. Create the new template with a "(copy)" suffix
+      const newName = `${name} (copy)`;
+      const createRes = await fetch("/api/check-in-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName, description: source.description }),
+      });
+      const createJson = await createRes.json();
+      if (!createRes.ok) { showToast(createJson.error || "Failed to create copy", "error"); return; }
+      const newTemplateId: string = createJson.data.id;
+
+      // 3. Recreate each goal area and its goals in order
+      for (const area of source.goalAreas ?? []) {
+        const areaRes = await fetch("/api/goal-areas", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templateId: newTemplateId, name: area.name, displayOrder: area.displayOrder }),
+        });
+        const areaJson = await areaRes.json();
+        if (!areaRes.ok) continue;
+        const newAreaId: string = areaJson.data.id;
+
+        for (const goal of area.goals ?? []) {
+          await fetch("/api/goal-areas/goals", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              goalAreaId: newAreaId,
+              goal: goal.goal,
+              successCriteria: goal.successCriteria,
+              reportUrl: goal.reportUrl,
+              displayOrder: goal.displayOrder,
+            }),
+          });
+        }
+      }
+
+      showToast(`Copied to "${newName}"`, "success");
+      await fetchTemplates();
+      // Open the copy for immediate editing
+      await loadTemplate(newTemplateId);
+    } catch {
+      showToast("Copy failed", "error");
+    } finally {
+      setCopying((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
@@ -448,6 +508,13 @@ export default function TemplatesTab() {
               </div>
               <div className="flex gap-2">
                 <button className="btn-primary text-xs" onClick={() => loadTemplate(t.id)}>Edit</button>
+                <button
+                  className="btn-ghost text-xs"
+                  onClick={() => handleCopyTemplate(t.id, t.name)}
+                  disabled={copying.has(t.id)}
+                >
+                  {copying.has(t.id) ? "Copying..." : "Copy"}
+                </button>
                 <button className="btn-danger text-xs" onClick={() => handleDeleteTemplate(t.id, t.name)}>Delete</button>
               </div>
             </div>
