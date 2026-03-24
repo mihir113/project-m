@@ -839,6 +839,15 @@ async function executeUpdateRequirement(params: { requirementId: string; name?: 
   if (params.status !== undefined) updateData.status = params.status;
   if (params.ownerId !== undefined) updateData.ownerId = params.ownerId || null;
 
+  // If due date is moved to today/future and caller didn't explicitly set status,
+  // normalize status back to pending so dashboard no longer treats it as overdue.
+  if (params.dueDate !== undefined && params.status === undefined) {
+    const today = new Date().toISOString().split("T")[0];
+    if (params.dueDate >= today) {
+      updateData.status = "pending";
+    }
+  }
+
   if (Object.keys(updateData).length === 0) throw new Error("No fields to update.");
 
   const [updated] = await db.update(requirements).set(updateData).where(eq(requirements.id, params.requirementId)).returning();
@@ -866,6 +875,15 @@ async function executeUpdateRequirements(params: {
   if (params?.set?.status !== undefined) setData.status = params.set.status;
   if (Object.prototype.hasOwnProperty.call(params?.set || {}, "ownerId")) {
     setData.ownerId = params.set.ownerId || null;
+  }
+
+  // Same normalization for bulk updates: moving due date to today/future should
+  // clear overdue visual state unless status is explicitly overridden.
+  if (params?.set?.dueDate !== undefined && params?.set?.status === undefined) {
+    const today = new Date().toISOString().split("T")[0];
+    if (params.set.dueDate >= today) {
+      setData.status = "pending";
+    }
   }
 
   if (Object.keys(setData).length === 0) {
