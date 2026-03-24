@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
 import { buildCategoryColorMap, getCategoryColor } from "@/lib/categoryColors";
@@ -148,6 +149,7 @@ function formatAiTextToHtml(text: string): string {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<ProjectWithCounts[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -612,6 +614,10 @@ export default function DashboardPage() {
     }
   };
 
+  const goToProject = (projectId: string) => {
+    router.push(`/projects/${projectId}`);
+  };
+
   // Visible categories (filtered by sidebar selection)
   const visibleCategories = sortedCategories.filter(
     (cat) => !activeCategory || activeCategory === cat
@@ -768,7 +774,13 @@ export default function DashboardPage() {
                     <td className="py-2 pr-2">
                       {weeklyRundown.wins.length ? weeklyRundown.wins.map((p) => (
                         <div key={p.projectId} className="mb-1">
-                          <Link href={`/projects/${p.projectId}`} className="text-primary hover:underline">{p.projectName}</Link>
+                          <button
+                            type="button"
+                            className="text-primary hover:underline text-left"
+                            onClick={() => goToProject(p.projectId)}
+                          >
+                            {p.projectName}
+                          </button>
                           <span className="text-muted"> — {p.note}</span>
                         </div>
                       )) : <span className="text-muted">No major wins logged</span>}
@@ -776,7 +788,13 @@ export default function DashboardPage() {
                     <td className="py-2 pr-2">
                       {weeklyRundown.stalled.length ? weeklyRundown.stalled.map((p) => (
                         <div key={p.projectId} className="mb-1">
-                          <Link href={`/projects/${p.projectId}`} className="text-primary hover:underline">{p.projectName}</Link>
+                          <button
+                            type="button"
+                            className="text-primary hover:underline text-left"
+                            onClick={() => goToProject(p.projectId)}
+                          >
+                            {p.projectName}
+                          </button>
                           <span className="text-muted"> — {p.note}</span>
                         </div>
                       )) : <span className="text-muted">No stalled projects</span>}
@@ -784,7 +802,14 @@ export default function DashboardPage() {
                     <td className="py-2">
                       {weeklyRundown.nextActions.length ? weeklyRundown.nextActions.map((p) => (
                         <div key={p.projectId} className="mb-1">
-                          <Link href={`/projects/${p.projectId}`} className="hover:underline" style={{ color: "#f87171" }}>{p.projectName}</Link>
+                          <button
+                            type="button"
+                            className="hover:underline text-left"
+                            style={{ color: "#f87171" }}
+                            onClick={() => goToProject(p.projectId)}
+                          >
+                            {p.projectName}
+                          </button>
                           <span className="text-muted"> — {p.note}</span>
                         </div>
                       )) : <span className="text-muted">No urgent next actions</span>}
