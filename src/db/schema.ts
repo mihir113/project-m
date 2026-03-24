@@ -240,6 +240,23 @@ export const aiExecutionLogs = pgTable("ai_execution_logs", {
 });
 
 // ─────────────────────────────────────────────
+// TABLE: project_ai_summaries
+// Concise AI-generated project snapshots (persisted for history/trends)
+// ─────────────────────────────────────────────
+export const projectAiSummaries = pgTable("project_ai_summaries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .references(() => projects.id, { onDelete: "cascade" })
+    .notNull(),
+  summaryText: text("summary_text").notNull(),
+  totalCount: integer("total_count").notNull(),
+  completedCount: integer("completed_count").notNull(),
+  pendingCount: integer("pending_count").notNull(),
+  overdueCount: integer("overdue_count").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
 // TABLE: ai_automations
 // Scheduled AI agent commands (e.g., "Categorize my uncategorized projects")
 // ─────────────────────────────────────────────
@@ -324,6 +341,14 @@ export const managerObservationsRelations = relations(managerObservations, ({ on
 
 export const projectsRelations = relations(projects, ({ many }) => ({
   requirements: many(requirements),
+  aiSummaries: many(projectAiSummaries),
+}));
+
+export const projectAiSummariesRelations = relations(projectAiSummaries, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectAiSummaries.projectId],
+    references: [projects.id],
+  }),
 }));
 
 export const requirementsRelations = relations(requirements, ({ one, many }) => ({

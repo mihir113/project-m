@@ -22,6 +22,16 @@ interface GoalArea { id: string; name: string; goals: Goal[]; }
 interface Goal { id: string; goal: string; successCriteria: string; reportUrl: string | null; }
 interface Submission { id: string; teamMemberId: string | null; teamMemberNick?: string; cycleLabel: string | null; notes: string | null; }
 interface CheckinResponse { goalAreaName: string; goal: string; successCriteria: string; managerComments: string | null; engineerReportUrl: string | null; displayOrder: number; }
+interface ProjectAISummary {
+  id: string;
+  projectId: string;
+  summaryText: string;
+  totalCount: number;
+  completedCount: number;
+  pendingCount: number;
+  overdueCount: number;
+  generatedAt: string;
+}
 
 // ── Editable row state for the check-in form (per goal)
 interface EditableRow {
@@ -52,6 +62,12 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("pending");
   const [filterOwner, setFilterOwner] = useState("all");
+
+  // ── Async AI summary panel ──
+  const [aiSummary, setAiSummary] = useState<ProjectAISummary | null>(null);
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
+  const [aiSummaryRefreshing, setAiSummaryRefreshing] = useState(false);
+  const [aiSummaryError, setAiSummaryError] = useState<string | null>(null);
 
   // ── Add Task modal ──
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -158,6 +174,45 @@ export default function ProjectDetailPage() {
   }, [projectId]);
 
   useEffect(() => { if (projectId) fetchData(); }, [projectId, fetchData]);
+
+  const loadLatestSummary = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/summary`);
+      const json = await res.json();
+      if (res.ok) {
+        setAiSummary(json.data || null);
+      }
+    } catch {
+      // ignore; generation call below can still provide data
+    }
+  }, [projectId]);
+
+  const generateSummary = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setAiSummaryRefreshing(true);
+    else setAiSummaryLoading(true);
+    setAiSummaryError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/summary`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setAiSummaryError(json.error || "Failed to generate summary");
+        return;
+      }
+      setAiSummary(json.data || null);
+    } catch {
+      setAiSummaryError("Failed to generate summary");
+    } finally {
+      setAiSummaryLoading(false);
+      setAiSummaryRefreshing(false);
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    // Non-blocking: show latest snapshot first (if any), then refresh async.
+    loadLatestSummary();
+    generateSummary(false);
+  }, [projectId, loadLatestSummary, generateSummary]);
 
   // ── Add Requirement ──
   const handleAddRequirement = async () => {
@@ -533,6 +588,38 @@ export default function ProjectDetailPage() {
         <div className="w-full h-2 rounded-full" style={{ backgroundColor: "#1e2130" }}>
           <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: getCategoryColor(project.category, categoryColorMap) }} />
         </div>
+      </div>
+
+      {/* AI Executive Summary (async side panel/card) */}
+      <div className="card p-4 mb-6">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <h3 className="text-sm font-semibold text-primary">AI Executive Summary</h3>
+          <button
+            className="btn-ghost text-xs"
+            onClick={() => generateSummary(true)}
+            disabled={aiSummaryRefreshing}
+          >
+            {aiSummaryRefreshing ? "Refreshing..." : "Regenerate"}
+          </button>
+        </div>
+
+        {aiSummaryLoading && !aiSummary ? (
+          <p className="text-xs text-muted">Generating concise summary...</p>
+        ) : aiSummaryError ? (
+          <div className="space-y-2">
+            <p className="text-xs" style={{ color: "#f87171" }}>{aiSummaryError}</p>
+            <button className="btn-primary text-xs" onClick={() => generateSummary(true)}>Retry</button>
+          </div>
+        ) : aiSummary ? (
+          <>
+            <p className="text-sm text-secondary whitespace-pre-line leading-6">{aiSummary.summaryText}</p>
+            <p className="text-[11px] text-muted mt-2">
+              Updated {new Date(aiSummary.generatedAt).toLocaleString()}
+            </p>
+          </>
+        ) : (
+          <p className="text-xs text-muted">No summary yet.</p>
+        )}
       </div>
 
       {/* Filters */}
