@@ -3,6 +3,7 @@ import { db } from "@/db/client";
 import { aiAutomations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { executeAICommand } from "@/lib/aiAgentCore";
+import { generateWeeklySnapshotsForAllProjects } from "@/lib/projectSummary";
 
 // POST /api/ai-automations/execute — run all enabled AI automations on schedule
 // Called by cron-job.org daily
@@ -24,6 +25,22 @@ export async function POST(req: NextRequest) {
     const now = new Date();
     const dayOfWeek = now.getDay();
     const dayOfMonth = now.getDate();
+
+    // Phase B: weekly project snapshot generation (runs on Mondays)
+    if (dayOfWeek === 1) {
+      const weeklyResult = await generateWeeklySnapshotsForAllProjects(false);
+      results.push({
+        systemTask: "weekly_project_snapshots",
+        action: "executed",
+        ...weeklyResult,
+      });
+    } else {
+      results.push({
+        systemTask: "weekly_project_snapshots",
+        action: "skipped",
+        reason: "Runs on Monday only",
+      });
+    }
 
     for (const auto of automations) {
       // Check if today matches the schedule

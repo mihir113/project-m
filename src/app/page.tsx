@@ -53,6 +53,15 @@ interface EquityScore {
   score: number;
 }
 
+interface WeeklyRundownData {
+  weekStart: string;
+  projectsWithProgress: Array<{ projectId: string; projectName: string; deltaCompleted: number }>;
+  stalledProjects: Array<{ projectId: string; projectName: string }>;
+  atRiskProjects: Array<{ projectId: string; projectName: string; overdueCount: number }>;
+  recommendation: string;
+  generatedAt: string;
+}
+
 const STATUS_OPTIONS = ["active", "on-hold", "completed"];
 
 // ─── Sparkline (deterministic mini area chart) ───
@@ -191,6 +200,11 @@ export default function DashboardPage() {
     dueDate: new Date().toISOString().split("T")[0],
   });
   const [savingQuickAdd, setSavingQuickAdd] = useState(false);
+
+  // Weekly AI rundown (Phase C)
+  const [weeklyRundown, setWeeklyRundown] = useState<WeeklyRundownData | null>(null);
+  const [weeklyRundownLoading, setWeeklyRundownLoading] = useState(false);
+  const [weeklyRundownError, setWeeklyRundownError] = useState<string | null>(null);
 
   // Category management
   const [categories, setCategories] = useState<string[]>([]);
@@ -368,6 +382,28 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
+  }, []);
+
+  const fetchWeeklyRundown = async () => {
+    setWeeklyRundownLoading(true);
+    setWeeklyRundownError(null);
+    try {
+      const res = await fetch("/api/dashboard/weekly-rundown");
+      const json = await res.json();
+      if (!res.ok) {
+        setWeeklyRundownError(json.error || "Failed to load weekly rundown");
+        return;
+      }
+      setWeeklyRundown(json.data || null);
+    } catch {
+      setWeeklyRundownError("Failed to load weekly rundown");
+    } finally {
+      setWeeklyRundownLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchWeeklyRundown();
   }, []);
 
   useEffect(() => {
@@ -661,6 +697,56 @@ export default function DashboardPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ─── Weekly AI Rundown ─── */}
+      <div className="mosaic-glass mb-4 p-3 border" style={{ borderColor: "rgba(79,111,245,0.25)" }}>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#9eb0ff" }}>
+            Weekly AI Rundown
+          </p>
+          <button className="btn-ghost text-xs" onClick={fetchWeeklyRundown} disabled={weeklyRundownLoading}>
+            {weeklyRundownLoading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
+
+        {weeklyRundownLoading && !weeklyRundown ? (
+          <p className="text-xs text-muted">Loading weekly summary...</p>
+        ) : weeklyRundownError ? (
+          <p className="text-xs" style={{ color: "#f87171" }}>{weeklyRundownError}</p>
+        ) : weeklyRundown ? (
+          <>
+            <p className="text-sm text-secondary whitespace-pre-line leading-6 mb-2">{weeklyRundown.recommendation}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="text-muted mb-1">Moved</p>
+                {weeklyRundown.projectsWithProgress.slice(0, 2).map((p) => (
+                  <Link key={p.projectId} href={`/projects/${p.projectId}`} className="block text-primary hover:underline">
+                    {p.projectName} (+{p.deltaCompleted})
+                  </Link>
+                ))}
+              </div>
+              <div>
+                <p className="text-muted mb-1">Stalled</p>
+                {weeklyRundown.stalledProjects.slice(0, 2).map((p) => (
+                  <Link key={p.projectId} href={`/projects/${p.projectId}`} className="block text-primary hover:underline">
+                    {p.projectName}
+                  </Link>
+                ))}
+              </div>
+              <div>
+                <p className="text-muted mb-1">At Risk</p>
+                {weeklyRundown.atRiskProjects.slice(0, 2).map((p) => (
+                  <Link key={p.projectId} href={`/projects/${p.projectId}`} className="block hover:underline" style={{ color: "#f87171" }}>
+                    {p.projectName} ({p.overdueCount} overdue)
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-muted">No weekly rundown available yet.</p>
+        )}
       </div>
 
       {/* ─── Direct Reports Pulse ─── */}
