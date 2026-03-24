@@ -1425,6 +1425,44 @@ IMPORTANT RULES:
             result = await executeGetRequirements(functionArgs);
             break;
           case "update_requirement":
+            // Safety fallback: if model emits placeholder/non-UUID requirementId for a bulk-style request,
+            // transparently route to bulk updater using prompt intent.
+            if (!isValidUUID(functionArgs?.requirementId || "")) {
+              const isPlaceholder = typeof functionArgs?.requirementId === "string" && /\[[^\]]+\]/.test(functionArgs.requirementId);
+              const looksBulkPrompt = /\b(all|every|bulk)\b/i.test(prompt);
+              const mentionsOverdue = /\boverdue|past due\b/i.test(prompt);
+
+              if (isPlaceholder || looksBulkPrompt || mentionsOverdue) {
+                const setPayload: { dueDate?: string; status?: string; ownerId?: string } = {};
+                if (functionArgs?.dueDate !== undefined) setPayload.dueDate = functionArgs.dueDate;
+                if (functionArgs?.status !== undefined) setPayload.status = functionArgs.status;
+                if (Object.prototype.hasOwnProperty.call(functionArgs || {}, "ownerId")) setPayload.ownerId = functionArgs.ownerId;
+
+                const bulkParams: {
+                  projectId?: string;
+                  ownerId?: string;
+                  status?: string;
+                  dueDateBefore?: string;
+                  set: { dueDate?: string; status?: string; ownerId?: string };
+                } = {
+                  set: setPayload,
+                };
+
+                // Heuristic: common phrasing "all past due / overdue tasks"
+                if (mentionsOverdue) {
+                  bulkParams.status = "overdue";
+                }
+
+                // If model provided valid filters, preserve them
+                if (functionArgs?.projectId && isValidUUID(functionArgs.projectId)) bulkParams.projectId = functionArgs.projectId;
+                if (functionArgs?.ownerId && isValidUUID(functionArgs.ownerId)) bulkParams.ownerId = functionArgs.ownerId;
+
+                result = await executeUpdateRequirements(bulkParams);
+                result = { ...result, fallbackFrom: "update_requirement" };
+                break;
+              }
+            }
+
             result = await executeUpdateRequirement(functionArgs);
             break;
           case "update_requirements":
