@@ -55,9 +55,9 @@ interface EquityScore {
 
 interface WeeklyRundownData {
   weekStart: string;
-  projectsWithProgress: Array<{ projectId: string; projectName: string; deltaCompleted: number }>;
-  stalledProjects: Array<{ projectId: string; projectName: string }>;
-  atRiskProjects: Array<{ projectId: string; projectName: string; overdueCount: number }>;
+  wins: Array<{ projectId: string; projectName: string; note: string }>;
+  stalled: Array<{ projectId: string; projectName: string; note: string }>;
+  nextActions: Array<{ projectId: string; projectName: string; note: string }>;
   recommendation: string;
   generatedAt: string;
 }
@@ -398,7 +398,7 @@ export default function DashboardPage() {
     setWeeklyRundownLoading(true);
     setWeeklyRundownError(null);
     try {
-      const res = await fetch("/api/dashboard/weekly-rundown");
+      const res = await fetch("/api/dashboard/weekly-rundown", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok) {
         setWeeklyRundownError(json.error || "Failed to load weekly rundown");
@@ -407,6 +407,25 @@ export default function DashboardPage() {
       setWeeklyRundown(json.data || null);
     } catch {
       setWeeklyRundownError("Failed to load weekly rundown");
+    } finally {
+      setWeeklyRundownLoading(false);
+    }
+  };
+
+  const refreshWeeklyRundown = async () => {
+    setWeeklyRundownLoading(true);
+    setWeeklyRundownError(null);
+    try {
+      const refreshRes = await fetch("/api/dashboard/weekly-rundown", { method: "POST" });
+      const refreshJson = await refreshRes.json();
+      if (!refreshRes.ok) {
+        setWeeklyRundownError(refreshJson.error || "Failed to refresh weekly rundown");
+        return;
+      }
+      await fetchWeeklyRundown();
+      showToast("Weekly rundown refreshed", "success");
+    } catch {
+      setWeeklyRundownError("Failed to refresh weekly rundown");
     } finally {
       setWeeklyRundownLoading(false);
     }
@@ -715,7 +734,7 @@ export default function DashboardPage() {
           <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#9eb0ff" }}>
             Weekly AI Rundown
           </p>
-          <button className="btn-ghost text-xs" onClick={fetchWeeklyRundown} disabled={weeklyRundownLoading}>
+          <button className="btn-ghost text-xs" onClick={refreshWeeklyRundown} disabled={weeklyRundownLoading}>
             {weeklyRundownLoading ? "Refreshing..." : "Refresh"}
           </button>
         </div>
@@ -726,37 +745,53 @@ export default function DashboardPage() {
           <p className="text-xs" style={{ color: "#f87171" }}>{weeklyRundownError}</p>
         ) : weeklyRundown ? (
           <>
+            <p className="text-[11px] text-muted mb-2">
+              Week of {new Date(weeklyRundown.weekStart).toLocaleDateString()} · Last generated {new Date(weeklyRundown.generatedAt).toLocaleString()}
+            </p>
             <p
               className="text-sm text-secondary leading-6 mb-2"
               dangerouslySetInnerHTML={{
                 __html: formatAiTextToHtml(weeklyRundown.recommendation),
               }}
             />
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-              <div>
-                <p className="text-muted mb-1">Moved</p>
-                {weeklyRundown.projectsWithProgress.slice(0, 2).map((p) => (
-                  <Link key={p.projectId} href={`/projects/${p.projectId}`} className="block text-primary hover:underline">
-                    {p.projectName} (+{p.deltaCompleted})
-                  </Link>
-                ))}
-              </div>
-              <div>
-                <p className="text-muted mb-1">Stalled</p>
-                {weeklyRundown.stalledProjects.slice(0, 2).map((p) => (
-                  <Link key={p.projectId} href={`/projects/${p.projectId}`} className="block text-primary hover:underline">
-                    {p.projectName}
-                  </Link>
-                ))}
-              </div>
-              <div>
-                <p className="text-muted mb-1">At Risk</p>
-                {weeklyRundown.atRiskProjects.slice(0, 2).map((p) => (
-                  <Link key={p.projectId} href={`/projects/${p.projectId}`} className="block hover:underline" style={{ color: "#f87171" }}>
-                    {p.projectName} ({p.overdueCount} overdue)
-                  </Link>
-                ))}
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="text-left text-muted border-b border-[var(--border-default)]">
+                    <th className="py-1 pr-2">Wins</th>
+                    <th className="py-1 pr-2">Stalled Focus</th>
+                    <th className="py-1">Next Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="align-top">
+                    <td className="py-2 pr-2">
+                      {weeklyRundown.wins.length ? weeklyRundown.wins.map((p) => (
+                        <div key={p.projectId} className="mb-1">
+                          <Link href={`/projects/${p.projectId}`} className="text-primary hover:underline">{p.projectName}</Link>
+                          <span className="text-muted"> — {p.note}</span>
+                        </div>
+                      )) : <span className="text-muted">No major wins logged</span>}
+                    </td>
+                    <td className="py-2 pr-2">
+                      {weeklyRundown.stalled.length ? weeklyRundown.stalled.map((p) => (
+                        <div key={p.projectId} className="mb-1">
+                          <Link href={`/projects/${p.projectId}`} className="text-primary hover:underline">{p.projectName}</Link>
+                          <span className="text-muted"> — {p.note}</span>
+                        </div>
+                      )) : <span className="text-muted">No stalled projects</span>}
+                    </td>
+                    <td className="py-2">
+                      {weeklyRundown.nextActions.length ? weeklyRundown.nextActions.map((p) => (
+                        <div key={p.projectId} className="mb-1">
+                          <Link href={`/projects/${p.projectId}`} className="hover:underline" style={{ color: "#f87171" }}>{p.projectName}</Link>
+                          <span className="text-muted"> — {p.note}</span>
+                        </div>
+                      )) : <span className="text-muted">No urgent next actions</span>}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </>
         ) : (

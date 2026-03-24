@@ -257,6 +257,20 @@ export const projectAiSummaries = pgTable("project_ai_summaries", {
 });
 
 // ─────────────────────────────────────────────
+// TABLE: dashboard_weekly_rundowns
+// Persisted weekly dashboard snapshot for stable rendering
+// ─────────────────────────────────────────────
+export const dashboardWeeklyRundowns = pgTable("dashboard_weekly_rundowns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  weekStart: timestamp("week_start").notNull(),
+  recommendationText: text("recommendation_text").notNull(),
+  winsJson: text("wins_json").notNull(),
+  stalledJson: text("stalled_json").notNull(),
+  nextActionsJson: text("next_actions_json").notNull(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
 // TABLE: ai_automations
 // Scheduled AI agent commands (e.g., "Categorize my uncategorized projects")
 // ─────────────────────────────────────────────

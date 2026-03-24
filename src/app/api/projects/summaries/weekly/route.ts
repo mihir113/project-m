@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateWeeklySnapshotsForAllProjects } from "@/lib/projectSummary";
+import { generateWeeklySnapshotsForAllProjects, generateWeeklyRundownSnapshot } from "@/lib/projectSummary";
 
 // POST /api/projects/summaries/weekly
 // Generates weekly project snapshots for all active projects.
@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await generateWeeklySnapshotsForAllProjects(force);
-    return NextResponse.json({ success: true, ...result });
+    const rundown = await generateWeeklyRundownSnapshot(force);
+    return NextResponse.json({ success: true, ...result, weeklyRundownGeneratedAt: rundown.generatedAt });
   } catch (error: any) {
     console.error("POST /api/projects/summaries/weekly error", error);
     return NextResponse.json(

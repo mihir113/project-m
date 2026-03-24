@@ -1,7 +1,7 @@
 import Groq from "groq-sdk";
 import { db } from "@/db/client";
-import { projects, requirements, projectAiSummaries } from "@/db/schema";
-import { eq, gte, and } from "drizzle-orm";
+import { projects, requirements, projectAiSummaries, dashboardWeeklyRundowns } from "@/db/schema";
+import { eq, gte, and, lt, desc } from "drizzle-orm";
 
 function clampSummaryLines(text: string, maxLines = 4): string {
   return text
@@ -196,4 +196,136 @@ export async function generateWeeklySnapshotsForAllProjects(force = false) {
     errorCount: results.filter((r) => r.action === "error").length,
     results,
   };
+}
+
+type WeeklyRow = { projectId: string; projectName: string; note: string };
+
+async function buildWeeklyTableAiText(input: {
+  wins: WeeklyRow[];
+  stalled: WeeklyRow[];
+  nextActions: WeeklyRow[];
+}) {
+  const fallback = "Weekly snapshot generated from project progress and overdue deltas.";
+  if (!process.env.GROQ_API_KEY) return fallback;
+
+  try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      temperature: 0,
+      max_tokens: 90,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Write one concise executive line (max 20 words) summarizing this week's wins, stalled focus, and next action. Plain text only.",
+        },
+        {
+          role: "user",
+          content: [
+            `Wins: ${input.wins.map((w) => w.projectName).join(", ") || "none"}`,
+            `Stalled: ${input.stalled.map((s) => s.projectName).join(", ") || "none"}`,
+            `Next Actions: ${input.nextActions.map((n) => n.projectName).join(", ") || "none"}`,
+          ].join("\n"),
+        },
+      ],
+    });
+    return (completion.choices?.[0]?.message?.content || fallback).trim();
+  } catch {
+    return fallback;
+  }
+}
+
+export async function generateWeeklyRundownSnapshot(force = false) {
+  const weekStart = startOfWeek();
+  const prevWeekStart = new Date(weekStart);
+  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+
+  if (!force) {
+    const [existing] = await db
+      .select()
+      .from(dashboardWeeklyRundowns)
+      .where(gte(dashboardWeeklyRundowns.weekStart, weekStart))
+      .orderBy(desc(dashboardWeeklyRundowns.generatedAt))
+      .limit(1);
+    if (existing) return existing;
+  }
+
+  const activeProjects = await db
+    .select({ id: projects.id, name: projects.name })
+    .from(projects)
+    .where(eq(projects.status, "active"));
+
+  const thisWeekRows = await db
+    .select()
+    .from(projectAiSummaries)
+    .where(gte(projectAiSummaries.generatedAt, weekStart))
+    .orderBy(desc(projectAiSummaries.generatedAt));
+
+  const prevWeekRows = await db
+    .select()
+    .from(projectAiSummaries)
+    .where(
+      and(
+        gte(projectAiSummaries.generatedAt, prevWeekStart),
+        lt(projectAiSummaries.generatedAt, weekStart)
+      )
+    )
+    .orderBy(desc(projectAiSummaries.generatedAt));
+
+  const latestThis = new Map<string, (typeof thisWeekRows)[number]>();
+  for (const r of thisWeekRows) if (!latestThis.has(r.projectId)) latestThis.set(r.projectId, r);
+  const latestPrev = new Map<string, (typeof prevWeekRows)[number]>();
+  for (const r of prevWeekRows) if (!latestPrev.has(r.projectId)) latestPrev.set(r.projectId, r);
+
+  const wins: WeeklyRow[] = [];
+  const stalled: WeeklyRow[] = [];
+  const nextActions: WeeklyRow[] = [];
+
+  for (const p of activeProjects) {
+    const t = latestThis.get(p.id);
+    const prev = latestPrev.get(p.id);
+    if (!t) {
+      stalled.push({ projectId: p.id, projectName: p.name, note: "No snapshot this week" });
+      continue;
+    }
+
+    const deltaCompleted = (t.completedCount || 0) - (prev?.completedCount || 0);
+    if (deltaCompleted > 0) {
+      wins.push({ projectId: p.id, projectName: p.name, note: `+${deltaCompleted} completed` });
+    } else {
+      stalled.push({ projectId: p.id, projectName: p.name, note: "No completion delta" });
+    }
+
+    if ((t.overdueCount || 0) > 0) {
+      nextActions.push({ projectId: p.id, projectName: p.name, note: `${t.overdueCount} overdue to clear` });
+    }
+  }
+
+  wins.sort((a, b) => Number(b.note.match(/\d+/)?.[0] || 0) - Number(a.note.match(/\d+/)?.[0] || 0));
+  nextActions.sort((a, b) => Number(b.note.match(/\d+/)?.[0] || 0) - Number(a.note.match(/\d+/)?.[0] || 0));
+
+  const recommendationText = await buildWeeklyTableAiText({
+    wins: wins.slice(0, 5),
+    stalled: stalled.slice(0, 5),
+    nextActions: nextActions.slice(0, 5),
+  });
+
+  await db
+    .delete(dashboardWeeklyRundowns)
+    .where(and(gte(dashboardWeeklyRundowns.weekStart, weekStart), lt(dashboardWeeklyRundowns.weekStart, new Date(weekStart.getTime() + 7 * 86400000))));
+
+  const [saved] = await db
+    .insert(dashboardWeeklyRundowns)
+    .values({
+      weekStart,
+      recommendationText,
+      winsJson: JSON.stringify(wins.slice(0, 5)),
+      stalledJson: JSON.stringify(stalled.slice(0, 5)),
+      nextActionsJson: JSON.stringify(nextActions.slice(0, 5)),
+      generatedAt: new Date(),
+    })
+    .returning();
+
+  return saved;
 }
