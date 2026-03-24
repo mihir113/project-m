@@ -76,32 +76,6 @@ function Sparkline({ completed, total, color }: { completed: number; total: numb
   );
 }
 
-// ─── Momentum Ring (SVG donut) ───
-function MomentumRing({ percentage, size = 64 }: { percentage: number; size?: number }) {
-  const sw = 5;
-  const r = (size - sw) / 2;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (percentage / 100) * circ;
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border-default)" strokeWidth={sw} />
-        <circle
-          cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke="#4f6ff5" strokeWidth={sw}
-          strokeDasharray={circ} strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="transition-all duration-1000"
-          style={{ filter: "drop-shadow(0 0 6px rgba(79,111,245,0.5))" }}
-        />
-      </svg>
-      <div className="absolute inset-0 flex items-center justify-center">
-        <span className="text-sm font-bold text-primary">{percentage}%</span>
-      </div>
-    </div>
-  );
-}
-
 // ─── Category Icon SVGs ───
 function CategoryIcon({ index, color, active }: { index: number; color: string; active: boolean }) {
   const icons = [
@@ -210,22 +184,19 @@ export default function DashboardPage() {
   });
   const [savingTask, setSavingTask] = useState(false);
 
+  // Dashboard quick-add task state
+  const [quickAddForm, setQuickAddForm] = useState({
+    projectId: "",
+    name: "",
+    dueDate: new Date().toISOString().split("T")[0],
+  });
+  const [savingQuickAdd, setSavingQuickAdd] = useState(false);
+
   // Category management
   const [categories, setCategories] = useState<string[]>([]);
   const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [newCategoryInput, setNewCategoryInput] = useState("");
-
-  // Stats
-  const stats = useMemo(() => {
-    const activeProjects = projects.filter((p) => p.status === "active").length;
-    const totalReqs = projects.reduce((s, p) => s + Number(p.totalRequirements), 0);
-    const completedReqs = projects.reduce((s, p) => s + Number(p.completedRequirements), 0);
-    const pct = totalReqs > 0 ? Math.round((completedReqs / totalReqs) * 100) : 100;
-    const onHold = projects.filter((p) => p.status === "on-hold").length;
-    const done = projects.filter((p) => p.status === "completed").length;
-    return { activeProjects, totalReqs, completedReqs, pct, onHold, done };
-  }, [projects]);
 
   // Focus mode: hide projects at 100% (all tasks done)
   const displayProjects = useMemo(() => {
@@ -253,18 +224,6 @@ export default function DashboardPage() {
       return a.localeCompare(b);
     });
   }, [projectsByCategory]);
-
-  // Top 3 pending tasks
-  const topTasks = useMemo(() => {
-    return tasks
-      .filter((t) => t.status === "pending" || t.status === "overdue")
-      .sort((a, b) => {
-        if (!a.dueDate) return 1;
-        if (!b.dueDate) return -1;
-        return a.dueDate.localeCompare(b.dueDate);
-      })
-      .slice(0, 3);
-  }, [tasks]);
 
   // Group open tasks by project for inline display
   const tasksByProject = useMemo(() => {
@@ -411,6 +370,12 @@ export default function DashboardPage() {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (!quickAddForm.projectId && projects.length > 0) {
+      setQuickAddForm((prev) => ({ ...prev, projectId: projects[0].id }));
+    }
+  }, [projects, quickAddForm.projectId]);
+
   // ── Modal handlers ──
   const openCreate = () => {
     setEditingProject(null);
@@ -545,6 +510,43 @@ export default function DashboardPage() {
     }
   };
 
+  const handleQuickAddTask = async () => {
+    if (!quickAddForm.name.trim() || !quickAddForm.projectId) return;
+    setSavingQuickAdd(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const dueDate = quickAddForm.dueDate || today;
+      const res = await fetch("/api/requirements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: quickAddForm.projectId,
+          name: quickAddForm.name.trim(),
+          description: null,
+          type: "one-time",
+          recurrence: null,
+          dueDate,
+          ownerId: null,
+          isPerMemberCheckIn: false,
+          templateId: null,
+          url: null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        showToast(json.error || "Failed to create task", "error");
+        return;
+      }
+      showToast(`Created "${quickAddForm.name.trim()}"`, "success");
+      setQuickAddForm((prev) => ({ ...prev, name: "" }));
+      await fetchData();
+    } catch {
+      showToast("Failed to create task", "error");
+    } finally {
+      setSavingQuickAdd(false);
+    }
+  };
+
   // Visible categories (filtered by sidebar selection)
   const visibleCategories = sortedCategories.filter(
     (cat) => !activeCategory || activeCategory === cat
@@ -560,89 +562,12 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-fadeIn dashboard-bg">
-      {/* ─── Header Row: Momentum + Top Tasks + Stats + New Project ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-[auto_1fr_auto_auto] gap-3 mb-4">
-        {/* Weekly Momentum */}
-        <div className="mosaic-glass flex items-center gap-4 px-5 py-3">
-          <MomentumRing percentage={stats.pct} size={60} />
-          <div>
-            <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
-              Weekly Momentum
-            </p>
-            <p className="text-lg font-bold text-primary leading-tight">
-              {stats.completedReqs}
-              <span className="text-muted font-normal text-xs"> / {stats.totalReqs}</span>
-            </p>
-            <p className="text-[10px] text-muted mt-0.5">
-              {stats.activeProjects} active &middot; {stats.onHold} paused &middot; {stats.done} done
-            </p>
-          </div>
-        </div>
-
-        {/* Top 3 Tasks */}
-        <div className="mosaic-glass px-5 py-3 min-w-0">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] uppercase tracking-widest text-muted font-semibold">
-              Priority Tasks
-            </p>
-          </div>
-          {topTasks.length === 0 ? (
-            <p className="text-xs text-muted italic">All clear — no pending tasks</p>
-          ) : (
-            <div className="space-y-1.5">
-              {topTasks.map((task, i) => (
-                <Link
-                  key={task.id}
-                  href={`/projects/${task.projectId}`}
-                  className="flex items-center gap-2 min-w-0 group"
-                  style={{ textDecoration: "none" }}
-                >
-                  <span className="text-[10px] font-bold w-4 text-muted flex-shrink-0">
-                    {i + 1}.
-                  </span>
-                  <div
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{
-                      backgroundColor: task.projectColor || "#4f6ff5",
-                      boxShadow: `0 0 4px ${task.projectColor || "#4f6ff5"}60`,
-                    }}
-                  />
-                  <span className="text-xs text-primary truncate flex-1 group-hover:text-accent-blue transition-colors">
-                    {task.name}
-                  </span>
-                  {task.projectName && (
-                    <span className="text-[9px] text-muted flex-shrink-0 hidden sm:inline">
-                      {task.projectName}
-                    </span>
-                  )}
-                  {task.dueDate && (
-                    <span className="text-[10px] text-muted flex-shrink-0 tabular-nums">
-                      {task.dueDate}
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Compact Stats */}
-        <div className="flex md:flex-col gap-1.5 col-span-1 md:col-span-1">
-          <Link href="/projects?status=active" className="mosaic-stat flex-1" style={{ textDecoration: "none" }}>
-            <p className="text-lg font-bold" style={{ color: "#4f6ff5" }}>{stats.activeProjects}</p>
-            <p className="text-[9px] text-muted uppercase tracking-wide">Active</p>
-          </Link>
-          <Link href="/tasks" className="mosaic-stat flex-1" style={{ textDecoration: "none" }}>
-            <p className="text-lg font-bold" style={{ color: "#34d399" }}>{stats.completedReqs}</p>
-            <p className="text-[9px] text-muted uppercase tracking-wide">Done</p>
-          </Link>
-        </div>
-
-        {/* New Task + New Project */}
-        <div className="flex md:flex-col gap-1.5">
+      {/* ─── Header Row: Quick actions only ─── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+        <div className="mosaic-glass-accent flex items-center justify-center min-h-[42px]">
           <button
             onClick={openAddTask}
-            className="mosaic-glass-accent flex md:flex-col items-center justify-center px-5 py-3 gap-2 md:gap-1 flex-1"
+            className="w-full h-full flex items-center justify-center gap-2 px-3 py-1.5"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -651,9 +576,12 @@ export default function DashboardPage() {
               New Task
             </span>
           </button>
+        </div>
+
+        <div className="mosaic-glass-accent flex items-center justify-center min-h-[42px]">
           <button
             onClick={openCreate}
-            className="mosaic-glass-accent flex md:flex-col items-center justify-center px-5 py-3 gap-2 md:gap-1 flex-1"
+            className="w-full h-full flex items-center justify-center gap-2 px-3 py-1.5"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
               <path d="M12 5v14M5 12h14" strokeLinecap="round" />
@@ -662,6 +590,76 @@ export default function DashboardPage() {
               New Project
             </span>
           </button>
+        </div>
+      </div>
+
+      {/* ─── Quick Add Task ─── */}
+      <div
+        className="mosaic-glass mb-4 p-3 border"
+        style={{
+          borderColor: "rgba(79,111,245,0.35)",
+          boxShadow: "inset 0 1px 0 rgba(79,111,245,0.22)",
+          background: "linear-gradient(180deg, rgba(79,111,245,0.08) 0%, rgba(79,111,245,0.03) 100%)",
+        }}
+      >
+        <div className="flex items-center justify-between mb-2 px-0.5">
+          <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#9eb0ff" }}>
+            Quick Add Task
+          </p>
+          <span className="text-[10px] text-muted">Fast entry</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+          <div>
+            <label className="text-[10px] text-muted mb-1 block">Project</label>
+            <select
+              className="input-field"
+              value={quickAddForm.projectId}
+              onChange={(e) => setQuickAddForm({ ...quickAddForm, projectId: e.target.value })}
+            >
+              {projects.length === 0 ? (
+                <option value="">No projects available</option>
+              ) : (
+                projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[10px] text-muted mb-1 block">Task Name</label>
+            <input
+              className="input-field"
+              placeholder="e.g. Follow up with vendor"
+              value={quickAddForm.name}
+              onChange={(e) => setQuickAddForm({ ...quickAddForm, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleQuickAddTask();
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="text-[10px] text-muted mb-1 block">Due Date</label>
+            <input
+              type="date"
+              className="input-field"
+              value={quickAddForm.dueDate}
+              onChange={(e) => setQuickAddForm({ ...quickAddForm, dueDate: e.target.value })}
+            />
+          </div>
+
+          <div className="flex items-end">
+            <button
+              className="btn-primary w-full"
+              onClick={handleQuickAddTask}
+              disabled={savingQuickAdd || !quickAddForm.name.trim() || !quickAddForm.projectId}
+            >
+              {savingQuickAdd ? "Adding..." : "Add Task"}
+            </button>
+          </div>
         </div>
       </div>
 

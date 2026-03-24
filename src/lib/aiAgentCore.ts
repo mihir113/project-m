@@ -455,6 +455,56 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "update_requirements",
+      description: "Bulk update requirements (tasks) using filters. Use this for requests like 'all overdue tasks', 'all tasks in project X', or 'all tasks assigned to Y'.",
+      parameters: {
+        type: "object",
+        properties: {
+          projectId: {
+            type: "string",
+            description: "Optional UUID of project to filter requirements",
+          },
+          ownerId: {
+            type: "string",
+            description: "Optional UUID of owner to filter requirements",
+          },
+          status: {
+            type: "string",
+            enum: ["pending", "completed", "overdue"],
+            description: "Optional current status filter",
+          },
+          dueDateBefore: {
+            type: "string",
+            description: "Optional date filter (YYYY-MM-DD). Matches requirements with dueDate before this date.",
+          },
+          set: {
+            type: "object",
+            description: "Fields to update on all matched requirements",
+            properties: {
+              dueDate: {
+                type: "string",
+                description: "New due date in YYYY-MM-DD format",
+              },
+              status: {
+                type: "string",
+                enum: ["pending", "completed", "overdue"],
+                description: "New status",
+              },
+              ownerId: {
+                type: "string",
+                description: "New owner UUID (or empty string to unassign)",
+              },
+            },
+            required: [],
+          },
+        },
+        required: ["set"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "delete_requirement",
       description: "Delete a requirement (task) from the database.",
       parameters: {
@@ -592,6 +642,20 @@ function getToolDescription(toolName: string, args: any, teamMemberName?: string
       if (args.ownerId) reqUpdates.push(`owner`);
       if (args.type) reqUpdates.push(`type to "${args.type}"`);
       return `Update requirement ${args.requirementId}: set ${reqUpdates.join(", ") || "fields"}`;
+    }
+    case "update_requirements": {
+      const filters = [];
+      if (args.projectId) filters.push(`project ${args.projectId}`);
+      if (args.ownerId) filters.push(`owner ${args.ownerId}`);
+      if (args.status) filters.push(`status "${args.status}"`);
+      if (args.dueDateBefore) filters.push(`due date before ${args.dueDateBefore}`);
+
+      const updates = [];
+      if (args?.set?.dueDate) updates.push(`due date to ${args.set.dueDate}`);
+      if (args?.set?.status) updates.push(`status to "${args.set.status}"`);
+      if (Object.prototype.hasOwnProperty.call(args?.set || {}, "ownerId")) updates.push(`owner`);
+
+      return `Bulk update requirements${filters.length ? ` where ${filters.join(", ")}` : ""}: set ${updates.join(", ") || "fields"}`;
     }
     case "delete_requirement":
       return `Delete requirement ${args.requirementId}`;
@@ -758,6 +822,10 @@ async function executeGetRequirements(params?: { projectId?: string; status?: st
 }
 
 async function executeUpdateRequirement(params: { requirementId: string; name?: string; description?: string; type?: string; recurrence?: string; dueDate?: string; status?: string; ownerId?: string }): Promise<any> {
+  if (typeof params.requirementId === "string" && /\[[^\]]+\]/.test(params.requirementId)) {
+    throw new Error(`Invalid requirement ID: "${params.requirementId}". Placeholder IDs are not supported. Use get_requirements first to resolve real IDs, or use update_requirements for bulk updates.`);
+  }
+
   if (!params.requirementId || !isValidUUID(params.requirementId)) {
     throw new Error(`Invalid requirement ID: "${params.requirementId}". Expected a valid UUID format.`);
   }
@@ -777,6 +845,73 @@ async function executeUpdateRequirement(params: { requirementId: string; name?: 
   if (!updated) throw new Error(`Requirement with ID "${params.requirementId}" not found.`);
 
   return { requirement: updated };
+}
+
+async function executeUpdateRequirements(params: {
+  projectId?: string;
+  ownerId?: string;
+  status?: string;
+  dueDateBefore?: string;
+  set: { dueDate?: string; status?: string; ownerId?: string };
+}): Promise<any> {
+  if (params?.projectId && !isValidUUID(params.projectId)) {
+    throw new Error(`Invalid project ID: "${params.projectId}". Expected a valid UUID format.`);
+  }
+  if (params?.ownerId && !isValidUUID(params.ownerId)) {
+    throw new Error(`Invalid owner ID: "${params.ownerId}". Expected a valid UUID format.`);
+  }
+
+  const setData: Record<string, any> = {};
+  if (params?.set?.dueDate !== undefined) setData.dueDate = params.set.dueDate;
+  if (params?.set?.status !== undefined) setData.status = params.set.status;
+  if (Object.prototype.hasOwnProperty.call(params?.set || {}, "ownerId")) {
+    setData.ownerId = params.set.ownerId || null;
+  }
+
+  if (Object.keys(setData).length === 0) {
+    throw new Error("No fields to update in 'set'. Provide at least one field (dueDate, status, or ownerId).");
+  }
+
+  const conditions: any[] = [];
+  if (params?.projectId) conditions.push(eq(requirements.projectId, params.projectId));
+  if (params?.ownerId) conditions.push(eq(requirements.ownerId, params.ownerId));
+  if (params?.status) conditions.push(eq(requirements.status, params.status as any));
+  if (params?.dueDateBefore) conditions.push(sql`${requirements.dueDate} < ${params.dueDateBefore}`);
+
+  if (conditions.length === 0) {
+    throw new Error("Refusing bulk update without filters. Provide at least one filter (projectId, ownerId, status, dueDateBefore).");
+  }
+
+  const matched = await db
+    .select({ id: requirements.id })
+    .from(requirements)
+    .where(sql.join(conditions, sql` AND `));
+
+  if (matched.length === 0) {
+    return { updatedCount: 0, requirementIds: [] };
+  }
+
+  const updatedRows = [];
+  for (const r of matched) {
+    const [updated] = await db
+      .update(requirements)
+      .set(setData)
+      .where(eq(requirements.id, r.id))
+      .returning({ id: requirements.id });
+    if (updated) updatedRows.push(updated);
+  }
+
+  return {
+    updatedCount: updatedRows.length,
+    requirementIds: updatedRows.map((r) => r.id),
+    filtersApplied: {
+      projectId: params.projectId || null,
+      ownerId: params.ownerId || null,
+      status: params.status || null,
+      dueDateBefore: params.dueDateBefore || null,
+    },
+    fieldsUpdated: Object.keys(setData),
+  };
 }
 
 async function executeDeleteRequirement(params: { requirementId: string }): Promise<any> {
@@ -1107,6 +1242,7 @@ IMPORTANT RULES:
 - Execute operations in logical order (e.g., create project before adding requirements to it)
 - When the user asks to categorize, recategorize, or organize existing projects, ALWAYS use get_projects first to fetch existing projects, then use update_project to update their categories. NEVER use create_project for this purpose.
 - When the user asks to update, modify, or change existing entities, use the appropriate update tool (update_project, update_requirement, update_team_member). Do NOT create new entities when the user wants to modify existing ones.
+- For bulk requirement updates (e.g., "all overdue tasks", "all tasks in project X"), use update_requirements with filters. Do NOT use placeholder IDs.
 - When the user asks to delete or remove entities, use the appropriate delete tool (delete_project, delete_requirement, delete_team_member).`;
 
     if (rules) {
@@ -1290,6 +1426,9 @@ IMPORTANT RULES:
             break;
           case "update_requirement":
             result = await executeUpdateRequirement(functionArgs);
+            break;
+          case "update_requirements":
+            result = await executeUpdateRequirements(functionArgs);
             break;
           case "delete_requirement":
             result = await executeDeleteRequirement(functionArgs);
