@@ -13,6 +13,52 @@ function clampSummaryLines(text: string, maxLines = 4): string {
     .join("\n");
 }
 
+function detectTaskThemes(taskNames: string[]): Array<{ theme: string; count: number }> {
+  const buckets: Record<string, number> = {
+    approvals: 0,
+    reviews: 0,
+    communication: 0,
+    reporting: 0,
+    data_sync: 0,
+    operations: 0,
+    planning: 0,
+    tooling: 0,
+  };
+
+  const rules: Array<{ theme: keyof typeof buckets; regex: RegExp }> = [
+    { theme: "approvals", regex: /\bapprove|approval|sign[-\s]?off\b/i },
+    { theme: "reviews", regex: /\breview|audit|check\b/i },
+    { theme: "communication", regex: /\brespond|reply|follow\s?up|talk|sync\b/i },
+    { theme: "reporting", regex: /\breport|summary|status update|dashboard\b/i },
+    { theme: "data_sync", regex: /\bdata|migration|import|export|sync\b/i },
+    { theme: "operations", regex: /\brequest|incident|ticket|ops|support\b/i },
+    { theme: "planning", regex: /\bplan|roadmap|strategy|priorit\w+\b/i },
+    { theme: "tooling", regex: /\btool|automation|script|agent|integration\b/i },
+  ];
+
+  for (const name of taskNames) {
+    for (const rule of rules) {
+      if (rule.regex.test(name)) buckets[rule.theme] += 1;
+    }
+  }
+
+  const labels: Record<string, string> = {
+    approvals: "approvals/sign-offs",
+    reviews: "reviews/checks",
+    communication: "stakeholder follow-ups",
+    reporting: "reporting/updates",
+    data_sync: "data sync/cleanup",
+    operations: "ops/ticket handling",
+    planning: "planning/prioritization",
+    tooling: "tooling/automation",
+  };
+
+  return Object.entries(buckets)
+    .filter(([, count]) => count > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([theme, count]) => ({ theme: labels[theme], count }));
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -66,6 +112,10 @@ export async function POST(
       .filter((r) => r.status !== "completed")
       .slice(0, 6)
       .map((r) => `${r.name} (${r.status}, due ${r.dueDate})`);
+    const topThemes = detectTaskThemes(doneNames).slice(0, 2);
+    const themesLine = topThemes.length
+      ? topThemes.map((t) => `${t.theme} (${t.count})`).join(", ")
+      : "general execution";
 
     if (!process.env.GROQ_API_KEY) {
       return NextResponse.json({ error: "GROQ_API_KEY not configured" }, { status: 500 });
@@ -80,7 +130,7 @@ export async function POST(
         {
           role: "system",
           content:
-            "You write executive project summaries. Keep output concise: exactly 2-4 short lines, plain text, no intro/outro, no markdown.",
+            "You write executive project summaries. Keep output concise: 2-4 short lines, plain text, no intro/outro, no markdown. Avoid vague phrasing like 'progressing well'.",
         },
         {
           role: "user",
@@ -88,9 +138,10 @@ export async function POST(
             `Project: ${project.name}`,
             `Today: ${today}`,
             `Counts => total:${totalCount}, completed:${completedCount}, pending:${pendingCount}, overdue:${overdueCount}`,
+            `Completed work themes: ${themesLine}`,
             `Done samples: ${doneNames.length ? doneNames.join("; ") : "none"}`,
             `Remaining samples: ${remainingNames.length ? remainingNames.join("; ") : "none"}`,
-            "Write an executive summary that says progress, what remains, and one suggested focus next.",
+            "Line 1 must mention the kind of completed work themes. Then mention what remains and one concrete next focus.",
           ].join("\n"),
         },
       ],
