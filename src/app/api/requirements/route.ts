@@ -119,6 +119,15 @@ export async function PUT(req: NextRequest) {
     if (templateId !== undefined) updates.templateId = templateId || null;
     if (url !== undefined) updates.url = url?.trim() || null;
 
+    // Normalize overdue state: if due date is moved to today/future and caller
+    // didn't explicitly set status, reset to pending.
+    if (dueDate !== undefined && status === undefined) {
+      const today = new Date().toISOString().split("T")[0];
+      if (dueDate >= today) {
+        updates.status = "pending";
+      }
+    }
+
     const [updated] = await db
       .update(requirements)
       .set(updates)
