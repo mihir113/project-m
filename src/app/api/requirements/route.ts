@@ -143,7 +143,15 @@ export async function PUT(req: NextRequest) {
 // DELETE /api/requirements?id=<uuid>
 export async function DELETE(req: NextRequest) {
   try {
-    const id = req.nextUrl.searchParams.get("id");
+    let id = req.nextUrl.searchParams.get("id");
+    if (!id) {
+      try {
+        const body = await req.json();
+        id = body?.id || null;
+      } catch {
+        // no-op: keep id from query param path
+      }
+    }
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }

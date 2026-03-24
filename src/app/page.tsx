@@ -1054,6 +1054,8 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {visibleCategories.map((category, catIdx) => {
                 const catProjects = projectsByCategory[category];
+                const cardTargetHref =
+                  catProjects.length === 1 ? `/projects/${catProjects[0].id}` : "/projects";
                 const color = getCategoryColor(
                   category === "Uncategorized" ? null : category,
                   categoryColorMap
@@ -1093,7 +1095,9 @@ export default function DashboardPage() {
                             boxShadow: `0 0 6px ${color}50`,
                           }}
                         />
-                        <h3 className="text-xs font-bold text-primary truncate">{category}</h3>
+                        <Link href={cardTargetHref} className="text-xs font-bold text-primary truncate hover:underline">
+                          {category}
+                        </Link>
                         <span className="text-[9px] text-muted">
                           {catProjects.length}p
                         </span>
