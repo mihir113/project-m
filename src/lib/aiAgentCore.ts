@@ -592,6 +592,30 @@ function isValidUUID(str: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
 }
 
+function normalizeDueDateFromPrompt(dueDate: string | undefined, promptText: string): string | undefined {
+  if (!dueDate) return dueDate;
+  // If user explicitly included a year in prompt, respect model output as-is.
+  if (/\b(19|20)\d{2}\b/.test(promptText)) return dueDate;
+
+  // For month/day prompts without year, prefer the next upcoming occurrence.
+  // This prevents accidental past-year dates like 2024-04-04 when user says "April 4th".
+  const m = dueDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return dueDate;
+
+  const month = m[2];
+  const day = m[3];
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const todayStr = today.toISOString().split("T")[0];
+
+  let candidate = `${currentYear}-${month}-${day}`;
+  if (candidate < todayStr) {
+    candidate = `${currentYear + 1}-${month}-${day}`;
+  }
+
+  return candidate;
+}
+
 function getToolDescription(toolName: string, args: any, teamMemberName?: string): string {
   switch (toolName) {
     case "get_team_members":
@@ -1454,6 +1478,9 @@ IMPORTANT RULES:
             result = await executeGetRequirements(functionArgs);
             break;
           case "update_requirement":
+            if (functionArgs?.dueDate) {
+              functionArgs.dueDate = normalizeDueDateFromPrompt(functionArgs.dueDate, prompt);
+            }
             // Safety fallback: if model emits placeholder/non-UUID requirementId for a bulk-style request,
             // transparently route to bulk updater using prompt intent.
             if (!isValidUUID(functionArgs?.requirementId || "")) {
@@ -1497,6 +1524,9 @@ IMPORTANT RULES:
             result = await executeUpdateRequirement(functionArgs);
             break;
           case "update_requirements":
+            if (functionArgs?.set?.dueDate) {
+              functionArgs.set.dueDate = normalizeDueDateFromPrompt(functionArgs.set.dueDate, prompt);
+            }
             result = await executeUpdateRequirements(functionArgs);
             break;
           case "delete_requirement":
@@ -1512,6 +1542,9 @@ IMPORTANT RULES:
             result = await executeDeleteTeamMember(functionArgs);
             break;
           case "create_requirement":
+            if (functionArgs?.dueDate) {
+              functionArgs.dueDate = normalizeDueDateFromPrompt(functionArgs.dueDate, prompt);
+            }
             if ((!functionArgs.projectId || !isValidUUID(functionArgs.projectId)) && executionContext.lastProject) {
               functionArgs.projectId = executionContext.lastProject.id;
             }
@@ -1521,6 +1554,9 @@ IMPORTANT RULES:
             result = await executeCreateRequirement(functionArgs);
             break;
           case "create_requirements_for_all_team_members":
+            if (functionArgs?.dueDate) {
+              functionArgs.dueDate = normalizeDueDateFromPrompt(functionArgs.dueDate, prompt);
+            }
             if ((!functionArgs.projectId || !isValidUUID(functionArgs.projectId)) && executionContext.lastProject) {
               functionArgs.projectId = executionContext.lastProject.id;
             }
