@@ -48,6 +48,16 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatAiTextToHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br />");
+}
+
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -612,7 +622,10 @@ export default function ProjectDetailPage() {
           </div>
         ) : aiSummary ? (
           <>
-            <p className="text-sm text-secondary whitespace-pre-line leading-6">{aiSummary.summaryText}</p>
+            <p
+              className="text-sm text-secondary leading-6"
+              dangerouslySetInnerHTML={{ __html: formatAiTextToHtml(aiSummary.summaryText) }}
+            />
             <p className="text-[11px] text-muted mt-2">
               Updated {new Date(aiSummary.generatedAt).toLocaleString()}
             </p>

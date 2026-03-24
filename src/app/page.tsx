@@ -137,6 +137,16 @@ function playCompletionSound() {
   } catch {}
 }
 
+function formatAiTextToHtml(text: string): string {
+  const escaped = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  return escaped
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br />");
+}
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<ProjectWithCounts[]>([]);
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -716,7 +726,12 @@ export default function DashboardPage() {
           <p className="text-xs" style={{ color: "#f87171" }}>{weeklyRundownError}</p>
         ) : weeklyRundown ? (
           <>
-            <p className="text-sm text-secondary whitespace-pre-line leading-6 mb-2">{weeklyRundown.recommendation}</p>
+            <p
+              className="text-sm text-secondary leading-6 mb-2"
+              dangerouslySetInnerHTML={{
+                __html: formatAiTextToHtml(weeklyRundown.recommendation),
+              }}
+            />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
               <div>
                 <p className="text-muted mb-1">Moved</p>
