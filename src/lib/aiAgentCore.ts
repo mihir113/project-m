@@ -875,7 +875,18 @@ async function executeUpdateRequirements(params: {
   const conditions: any[] = [];
   if (params?.projectId) conditions.push(eq(requirements.projectId, params.projectId));
   if (params?.ownerId) conditions.push(eq(requirements.ownerId, params.ownerId));
-  if (params?.status) conditions.push(eq(requirements.status, params.status as any));
+  if (params?.status) {
+    // "overdue" may be represented either as explicit status="overdue"
+    // or as pending tasks with due dates in the past.
+    if (params.status === "overdue") {
+      const today = new Date().toISOString().split("T")[0];
+      conditions.push(
+        sql`(${requirements.status} = 'overdue' OR (${requirements.status} = 'pending' AND ${requirements.dueDate} < ${today}))`
+      );
+    } else {
+      conditions.push(eq(requirements.status, params.status as any));
+    }
+  }
   if (params?.dueDateBefore) conditions.push(sql`${requirements.dueDate} < ${params.dueDateBefore}`);
 
   if (conditions.length === 0) {
@@ -1451,6 +1462,8 @@ IMPORTANT RULES:
                 // Heuristic: common phrasing "all past due / overdue tasks"
                 if (mentionsOverdue) {
                   bulkParams.status = "overdue";
+                  // Ensure we also match date-based overdue tasks even when not explicitly status-tagged.
+                  bulkParams.dueDateBefore = new Date().toISOString().split("T")[0];
                 }
 
                 // If model provided valid filters, preserve them
