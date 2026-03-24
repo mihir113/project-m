@@ -594,6 +594,8 @@ function isValidUUID(str: string): boolean {
 
 function normalizeDueDateFromPrompt(dueDate: string | undefined, promptText: string): string | undefined {
   if (!dueDate) return dueDate;
+  // Note: this normalization is intentionally conservative to avoid
+  // accidental past-year dates from natural-language month/day prompts.
   // If user explicitly included a year in prompt, respect model output as-is.
   if (/\b(19|20)\d{2}\b/.test(promptText)) return dueDate;
 
