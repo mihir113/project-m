@@ -1603,6 +1603,17 @@ export default function DashboardPage() {
               value={editTaskForm.url}
               onChange={(e) => setEditTaskForm({ ...editTaskForm, url: e.target.value })}
             />
+            {editTaskForm.url?.trim() && (
+              <a
+                href={editTaskForm.url.trim()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs mt-1 block truncate hover:underline"
+                style={{ color: "#4f6ff5" }}
+              >
+                Open link: {editTaskForm.url.trim()}
+              </a>
+            )}
           </div>
 
           <div className="flex justify-between gap-2 pt-2">
