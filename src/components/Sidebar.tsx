@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "@/components/ThemeProvider";
+import { supabase } from "@/lib/supabase";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: "⊞" },
@@ -18,6 +19,11 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false); // mobile drawer
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.href = "/login";
+  };
 
   // On mount: expand sidebar only if screen is wide enough
   useEffect(() => {
@@ -197,6 +203,12 @@ export function Sidebar() {
             <span className="text-lg">{theme === "light" ? "🌙" : "☀️"}</span>
             <span className="text-sm font-medium">{theme === "light" ? "Dark Mode" : "Light Mode"}</span>
           </button>
+          <button
+            onClick={handleLogout}
+            className="w-full mt-2 flex items-center justify-center gap-2 text-muted hover:text-primary transition-colors py-2"
+          >
+            <span className="text-sm font-medium">Log out</span>
+          </button>
         </div>
       </aside>
     </>
@@ -238,6 +250,13 @@ export function Sidebar() {
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? "→" : "←"}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full mt-2 flex items-center justify-center text-muted hover:text-primary transition-colors py-1"
+            title="Log out"
+          >
+            {!collapsed ? "Log out" : "⎋"}
           </button>
         </div>
       </div>

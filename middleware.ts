@@ -25,14 +25,27 @@ export async function middleware(req: NextRequest) {
     return NextResponse.json({ error: "Supabase env vars are not configured" }, { status: 500 });
   }
 
-  const res = NextResponse.next();
+  let res = NextResponse.next({
+    request: {
+      headers: req.headers,
+    },
+  });
+
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return req.cookies.getAll();
       },
-      setAll() {
-        // no-op in middleware; session refresh is handled by client auth flow
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
+        res = NextResponse.next({
+          request: {
+            headers: req.headers,
+          },
+        });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          res.cookies.set(name, value, options)
+        );
       },
     },
   });
