@@ -57,7 +57,7 @@
   body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
-    font-family: 'Geist Sans', system-ui, -apple-system, sans-serif;
+    font-family: Calibri, 'Segoe UI', Candara, system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
@@ -205,6 +205,100 @@
     border-color: var(--border-focus);
     box-shadow: 0 0 0 2px rgba(79, 111, 245, 0.15);
     outline: none;
+  }
+
+  .quick-project-select {
+    position: relative;
+  }
+
+  .quick-project-trigger {
+    width: 100%;
+    min-height: 38px;
+    padding: 0.5rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: linear-gradient(180deg, var(--input-bg) 0%, color-mix(in srgb, var(--input-bg) 85%, transparent) 100%);
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+  .quick-project-trigger:hover {
+    border-color: color-mix(in srgb, var(--border-focus) 45%, var(--input-border));
+  }
+  .quick-project-trigger:focus-visible {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px rgba(79, 111, 245, 0.15);
+  }
+
+  .quick-project-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+  }
+
+  .quick-project-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    box-shadow: 0 0 10px color-mix(in srgb, currentColor 35%, transparent);
+  }
+
+  .quick-project-chevron {
+    color: var(--text-muted);
+    transition: transform 0.18s ease;
+    flex-shrink: 0;
+  }
+  .quick-project-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .quick-project-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 40;
+    border: 1px solid var(--mosaic-glass-border);
+    border-radius: 10px;
+    background: var(--mosaic-glass-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+    max-height: 230px;
+    overflow: auto;
+    padding: 0.25rem;
+  }
+
+  .quick-project-option {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    text-align: left;
+    border-radius: 8px;
+    padding: 0.48rem 0.55rem;
+    font-size: 0.8rem;
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  .quick-project-option.highlighted,
+  .quick-project-option:hover {
+    background: color-mix(in srgb, var(--border-focus) 14%, transparent);
+  }
+  .quick-project-option.selected {
+    color: #4f6ff5;
+    font-weight: 600;
   }
 
   /* ─── Mosaic Hub Dashboard ─── */

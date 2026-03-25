@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/Modal";
@@ -212,6 +212,9 @@ export default function DashboardPage() {
     dueDate: new Date().toISOString().split("T")[0],
   });
   const [savingQuickAdd, setSavingQuickAdd] = useState(false);
+  const [quickProjectDropdownOpen, setQuickProjectDropdownOpen] = useState(false);
+  const [quickProjectHighlightIndex, setQuickProjectHighlightIndex] = useState(0);
+  const quickProjectDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Weekly AI rundown (Phase C)
   const [weeklyRundown, setWeeklyRundown] = useState<WeeklyRundownData | null>(null);
@@ -442,6 +445,35 @@ export default function DashboardPage() {
       setQuickAddForm((prev) => ({ ...prev, projectId: projects[0].id }));
     }
   }, [projects, quickAddForm.projectId]);
+
+  useEffect(() => {
+    if (!quickProjectDropdownOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!quickProjectDropdownRef.current) return;
+      if (!quickProjectDropdownRef.current.contains(event.target as Node)) {
+        setQuickProjectDropdownOpen(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setQuickProjectDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [quickProjectDropdownOpen]);
+
+  useEffect(() => {
+    const idx = projects.findIndex((p) => p.id === quickAddForm.projectId);
+    setQuickProjectHighlightIndex(idx >= 0 ? idx : 0);
+  }, [projects, quickAddForm.projectId]);
+
+  const selectedQuickProject = useMemo(
+    () => projects.find((p) => p.id === quickAddForm.projectId) || null,
+    [projects, quickAddForm.projectId]
+  );
 
   // ── Modal handlers ──
   const openCreate = () => {
@@ -682,21 +714,82 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
           <div>
             <label className="text-[10px] text-muted mb-1 block">Project</label>
-            <select
-              className="input-field"
-              value={quickAddForm.projectId}
-              onChange={(e) => setQuickAddForm({ ...quickAddForm, projectId: e.target.value })}
-            >
-              {projects.length === 0 ? (
-                <option value="">No projects available</option>
-              ) : (
-                projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))
+            <div className="quick-project-select" ref={quickProjectDropdownRef}>
+              <button
+                type="button"
+                className="quick-project-trigger"
+                onClick={() => setQuickProjectDropdownOpen((prev) => !prev)}
+                onKeyDown={(e) => {
+                  if (projects.length === 0) return;
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setQuickProjectDropdownOpen(true);
+                    setQuickProjectHighlightIndex((prev) => Math.min(prev + 1, projects.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setQuickProjectDropdownOpen(true);
+                    setQuickProjectHighlightIndex((prev) => Math.max(prev - 1, 0));
+                  } else if (e.key === "Enter" && quickProjectDropdownOpen) {
+                    e.preventDefault();
+                    const pick = projects[quickProjectHighlightIndex];
+                    if (pick) {
+                      setQuickAddForm({ ...quickAddForm, projectId: pick.id });
+                      setQuickProjectDropdownOpen(false);
+                    }
+                  }
+                }}
+                disabled={projects.length === 0}
+              >
+                <span className="quick-project-value">
+                  <span
+                    className="quick-project-dot"
+                    style={{ backgroundColor: selectedQuickProject?.color || "#4f6ff5" }}
+                  />
+                  <span className="truncate">
+                    {selectedQuickProject?.name || "No projects available"}
+                  </span>
+                </span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  className={`quick-project-chevron ${quickProjectDropdownOpen ? "open" : ""}`}
+                >
+                  <path d="M3.5 5.5L7 9L10.5 5.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+
+              {quickProjectDropdownOpen && projects.length > 0 && (
+                <div className="quick-project-menu" role="listbox" aria-label="Choose project">
+                  {projects.map((p, idx) => {
+                    const selected = p.id === quickAddForm.projectId;
+                    const highlighted = idx === quickProjectHighlightIndex;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        className={`quick-project-option ${selected ? "selected" : ""} ${highlighted ? "highlighted" : ""}`}
+                        onMouseEnter={() => setQuickProjectHighlightIndex(idx)}
+                        onClick={() => {
+                          setQuickAddForm({ ...quickAddForm, projectId: p.id });
+                          setQuickProjectDropdownOpen(false);
+                        }}
+                      >
+                        <span className="quick-project-value">
+                          <span className="quick-project-dot" style={{ backgroundColor: p.color || "#4f6ff5" }} />
+                          <span className="truncate">{p.name}</span>
+                        </span>
+                        {selected && (
+                          <svg width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M2 6L4.5 8.5L10 3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
-            </select>
+            </div>
           </div>
 
           <div>
