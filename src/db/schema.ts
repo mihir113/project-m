@@ -73,6 +73,18 @@ export const projects = pgTable("projects", {
 });
 
 // ─────────────────────────────────────────────
+// TABLE: useful_links
+// Personal/shared quick-access links for recurring workflows
+// ─────────────────────────────────────────────
+export const usefulLinks = pgTable("useful_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  title: text("title").notNull(),
+  url: text("url").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ─────────────────────────────────────────────
 // TABLE: task_automations
 // Rules for automatic task creation
 // ─────────────────────────────────────────────

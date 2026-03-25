@@ -24,3 +24,17 @@ CRON_SECRET=...
 
 - Drizzle + pg data access remains unchanged; Supabase Auth gates app access/session.
 - This auth layer complements DB hardening / RLS strategy.
+
+## Drizzle commands (schema/migrations)
+
+Run these from project root:
+
+```bash
+npm run db:generate
+npm run db:migrate
+```
+
+- `db:generate` creates SQL migration files from `src/db/schema.ts`
+- `db:migrate` applies generated migrations to your configured `DATABASE_URL`
+
+For this Useful Links feature, run both commands above to create/apply the new table + RLS policies.

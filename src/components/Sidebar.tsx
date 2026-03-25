@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/", icon: "⊞" },
   { label: "Tasks", href: "/tasks", icon: "✓" },
+  { label: "Useful Links", href: "/links", icon: "🔗" },
   { label: "Projects", href: "/projects", icon: "◎" },
   { label: "Team", href: "/team", icon: "⦿" },
   { label: "Automations", href: "/automations", icon: "⚙" },
