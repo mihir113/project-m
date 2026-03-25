@@ -101,13 +101,14 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, description, type, recurrence, dueDate, status, ownerId, isPerMemberCheckIn, templateId, url } = body;
+    const { id, projectId, name, description, type, recurrence, dueDate, status, ownerId, isPerMemberCheckIn, templateId, url } = body;
 
     if (!id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
 
     const updates: Record<string, any> = {};
+    if (projectId !== undefined) updates.projectId = projectId;
     if (name !== undefined) updates.name = name.trim();
     if (description !== undefined) updates.description = description?.trim() || null;
     if (type !== undefined) updates.type = type;

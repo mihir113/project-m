@@ -170,7 +170,7 @@ export default function DashboardPage() {
   // Edit task modal state
   const [editTaskModalOpen, setEditTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
-  const [editTaskForm, setEditTaskForm] = useState({ name: "", description: "", dueDate: "", ownerId: "", url: "" });
+  const [editTaskForm, setEditTaskForm] = useState({ projectId: "", name: "", description: "", dueDate: "", ownerId: "", url: "" });
   const [savingEditTask, setSavingEditTask] = useState(false);
 
   // Modal state
@@ -310,6 +310,7 @@ export default function DashboardPage() {
     e.stopPropagation();
     setEditingTask(task);
     setEditTaskForm({
+      projectId: task.projectId,
       name: task.name,
       description: task.description || "",
       dueDate: task.dueDate || "",
@@ -328,6 +329,7 @@ export default function DashboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: editingTask.id,
+          projectId: editTaskForm.projectId || editingTask.projectId,
           name: editTaskForm.name.trim(),
           description: editTaskForm.description.trim() || null,
           dueDate: editTaskForm.dueDate || null,
@@ -1691,6 +1693,21 @@ export default function DashboardPage() {
         title="Edit Task"
       >
         <div className="space-y-4">
+          <div>
+            <label className="text-xs text-muted mb-1 block">Project</label>
+            <select
+              className="input-field"
+              value={editTaskForm.projectId}
+              onChange={(e) => setEditTaskForm({ ...editTaskForm, projectId: e.target.value })}
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="text-xs text-muted mb-1 block">Task Name</label>
             <input
