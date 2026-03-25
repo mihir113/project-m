@@ -268,13 +268,44 @@
     z-index: 40;
     border: 1px solid var(--mosaic-glass-border);
     border-radius: 10px;
-    background: var(--mosaic-glass-bg);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background-color: var(--bg-elevated);
+    background-image: linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 96%, #ffffff 4%) 0%, var(--bg-elevated) 100%);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
     max-height: 230px;
     overflow: auto;
     padding: 0.25rem;
+  }
+
+  .quick-project-search-wrap {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 0.25rem;
+    margin: -0.05rem -0.05rem 0.2rem;
+    background-color: var(--bg-elevated);
+    border-bottom: 1px solid color-mix(in srgb, var(--border-default) 70%, transparent);
+  }
+
+  .quick-project-search {
+    width: 100%;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
+    color: var(--text-primary);
+    padding: 0 0.6rem;
+    font-size: 0.78rem;
+  }
+  .quick-project-search:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 2px rgba(79, 111, 245, 0.15);
+  }
+
+  .quick-project-empty {
+    padding: 0.5rem 0.55rem 0.6rem;
+    font-size: 0.76rem;
+    color: var(--text-muted);
   }
 
   .quick-project-option {

@@ -214,6 +214,7 @@ export default function DashboardPage() {
   const [savingQuickAdd, setSavingQuickAdd] = useState(false);
   const [quickProjectDropdownOpen, setQuickProjectDropdownOpen] = useState(false);
   const [quickProjectHighlightIndex, setQuickProjectHighlightIndex] = useState(0);
+  const [quickProjectSearch, setQuickProjectSearch] = useState("");
   const quickProjectDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Weekly AI rundown (Phase C)
@@ -475,6 +476,12 @@ export default function DashboardPage() {
     [projects, quickAddForm.projectId]
   );
 
+  const filteredQuickProjects = useMemo(() => {
+    const q = quickProjectSearch.trim().toLowerCase();
+    if (!q) return projects;
+    return projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, quickProjectSearch]);
+
   // ── Modal handlers ──
   const openCreate = () => {
     setEditingProject(null);
@@ -718,23 +725,30 @@ export default function DashboardPage() {
               <button
                 type="button"
                 className="quick-project-trigger"
-                onClick={() => setQuickProjectDropdownOpen((prev) => !prev)}
+                onClick={() => {
+                  setQuickProjectDropdownOpen((prev) => {
+                    const next = !prev;
+                    if (!next) setQuickProjectSearch("");
+                    return next;
+                  });
+                }}
                 onKeyDown={(e) => {
-                  if (projects.length === 0) return;
+                  if (filteredQuickProjects.length === 0) return;
                   if (e.key === "ArrowDown") {
                     e.preventDefault();
                     setQuickProjectDropdownOpen(true);
-                    setQuickProjectHighlightIndex((prev) => Math.min(prev + 1, projects.length - 1));
+                    setQuickProjectHighlightIndex((prev) => Math.min(prev + 1, filteredQuickProjects.length - 1));
                   } else if (e.key === "ArrowUp") {
                     e.preventDefault();
                     setQuickProjectDropdownOpen(true);
                     setQuickProjectHighlightIndex((prev) => Math.max(prev - 1, 0));
                   } else if (e.key === "Enter" && quickProjectDropdownOpen) {
                     e.preventDefault();
-                    const pick = projects[quickProjectHighlightIndex];
+                    const pick = filteredQuickProjects[quickProjectHighlightIndex];
                     if (pick) {
                       setQuickAddForm({ ...quickAddForm, projectId: pick.id });
                       setQuickProjectDropdownOpen(false);
+                      setQuickProjectSearch("");
                     }
                   }
                 }}
@@ -761,7 +775,41 @@ export default function DashboardPage() {
 
               {quickProjectDropdownOpen && projects.length > 0 && (
                 <div className="quick-project-menu" role="listbox" aria-label="Choose project">
-                  {projects.map((p, idx) => {
+                  <div className="quick-project-search-wrap">
+                    <input
+                      className="quick-project-search"
+                      placeholder="Search projects..."
+                      value={quickProjectSearch}
+                      onChange={(e) => {
+                        setQuickProjectSearch(e.target.value);
+                        setQuickProjectHighlightIndex(0);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setQuickProjectHighlightIndex((prev) => Math.min(prev + 1, Math.max(filteredQuickProjects.length - 1, 0)));
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setQuickProjectHighlightIndex((prev) => Math.max(prev - 1, 0));
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          const pick = filteredQuickProjects[quickProjectHighlightIndex];
+                          if (pick) {
+                            setQuickAddForm({ ...quickAddForm, projectId: pick.id });
+                            setQuickProjectDropdownOpen(false);
+                            setQuickProjectSearch("");
+                          }
+                        }
+                      }}
+                      autoFocus
+                    />
+                  </div>
+
+                  {filteredQuickProjects.length === 0 && (
+                    <div className="quick-project-empty">No matching projects</div>
+                  )}
+
+                  {filteredQuickProjects.map((p, idx) => {
                     const selected = p.id === quickAddForm.projectId;
                     const highlighted = idx === quickProjectHighlightIndex;
                     return (
@@ -773,6 +821,7 @@ export default function DashboardPage() {
                         onClick={() => {
                           setQuickAddForm({ ...quickAddForm, projectId: p.id });
                           setQuickProjectDropdownOpen(false);
+                          setQuickProjectSearch("");
                         }}
                       >
                         <span className="quick-project-value">
