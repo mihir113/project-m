@@ -368,7 +368,7 @@ export default function DashboardPage() {
     try {
       const [projRes, taskRes, teamRes, tmplRes, equityRes] = await Promise.all([
         fetch("/api/projects"),
-        fetch("/api/requirements"),
+        fetch("/api/requirements?status=pending"),
         fetch("/api/team"),
         fetch("/api/check-in-templates"),
         fetch("/api/management-equity"),

@@ -1,6 +1,7 @@
 import {
   pgTable,
   pgEnum,
+  index,
   uuid,
   text,
   timestamp,
@@ -76,13 +77,19 @@ export const projects = pgTable("projects", {
 // TABLE: useful_links
 // Personal/shared quick-access links for recurring workflows
 // ─────────────────────────────────────────────
-export const usefulLinks = pgTable("useful_links", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  title: text("title").notNull(),
-  url: text("url").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const usefulLinks = pgTable(
+  "useful_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    title: text("title").notNull(),
+    url: text("url").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    usefulLinksCreatedAtIdx: index("useful_links_created_at_idx").on(table.createdAt),
+  })
+);
 
 // ─────────────────────────────────────────────
 // TABLE: task_automations
@@ -108,39 +115,61 @@ export const taskAutomations = pgTable("task_automations", {
 // ─────────────────────────────────────────────
 // TABLE: requirements
 // ─────────────────────────────────────────────
-export const requirements = pgTable("requirements", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id")
-    .references(() => projects.id, { onDelete: "cascade" })
-    .notNull(),
-  name: text("name").notNull(),
-  description: text("description"),
-  type: requirementTypeEnum("type").notNull(),
-  recurrence: recurrenceEnum("recurrence"),
-  dueDate: date("due_date").notNull(),
-  status: requirementStatusEnum("status").default("pending").notNull(),
-  ownerId: uuid("owner_id").references(() => teamMembers.id),
-  isPerMemberCheckIn: boolean("is_per_member_check_in").default(false).notNull(),
-  // Link to a check-in template — null if not using one
-  templateId: uuid("template_id").references(() => checkInTemplates.id),
-  url: text("url"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const requirements = pgTable(
+  "requirements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    name: text("name").notNull(),
+    description: text("description"),
+    type: requirementTypeEnum("type").notNull(),
+    recurrence: recurrenceEnum("recurrence"),
+    dueDate: date("due_date").notNull(),
+    status: requirementStatusEnum("status").default("pending").notNull(),
+    ownerId: uuid("owner_id").references(() => teamMembers.id),
+    isPerMemberCheckIn: boolean("is_per_member_check_in").default(false).notNull(),
+    // Link to a check-in template — null if not using one
+    templateId: uuid("template_id").references(() => checkInTemplates.id),
+    url: text("url"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    requirementsProjectIdx: index("requirements_project_id_idx").on(table.projectId),
+    requirementsStatusIdx: index("requirements_status_idx").on(table.status),
+    requirementsDueDateIdx: index("requirements_due_date_idx").on(table.dueDate),
+    requirementsOwnerIdx: index("requirements_owner_id_idx").on(table.ownerId),
+    requirementsProjectStatusDueDateIdx: index("requirements_project_status_due_date_idx").on(
+      table.projectId,
+      table.status,
+      table.dueDate
+    ),
+  })
+);
 
 // ─────────────────────────────────────────────
 // TABLE: submissions
 // ─────────────────────────────────────────────
-export const submissions = pgTable("submissions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  requirementId: uuid("requirement_id")
-    .references(() => requirements.id, { onDelete: "cascade" })
-    .notNull(),
-  teamMemberId: uuid("team_member_id").references(() => teamMembers.id),
-  cycleLabel: text("cycle_label"),
-  completedAt: timestamp("completed_at").defaultNow().notNull(),
-  notes: text("notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const submissions = pgTable(
+  "submissions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requirementId: uuid("requirement_id")
+      .references(() => requirements.id, { onDelete: "cascade" })
+      .notNull(),
+    teamMemberId: uuid("team_member_id").references(() => teamMembers.id),
+    cycleLabel: text("cycle_label"),
+    completedAt: timestamp("completed_at").defaultNow().notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    submissionsRequirementIdx: index("submissions_requirement_id_idx").on(table.requirementId),
+    submissionsTeamMemberIdx: index("submissions_team_member_id_idx").on(table.teamMemberId),
+    submissionsCycleLabelIdx: index("submissions_cycle_label_idx").on(table.cycleLabel),
+  })
+);
 
 // ─────────────────────────────────────────────
 // TABLE: check_in_templates
@@ -255,32 +284,50 @@ export const aiExecutionLogs = pgTable("ai_execution_logs", {
 // TABLE: project_ai_summaries
 // Concise AI-generated project snapshots (persisted for history/trends)
 // ─────────────────────────────────────────────
-export const projectAiSummaries = pgTable("project_ai_summaries", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  projectId: uuid("project_id")
-    .references(() => projects.id, { onDelete: "cascade" })
-    .notNull(),
-  summaryText: text("summary_text").notNull(),
-  totalCount: integer("total_count").notNull(),
-  completedCount: integer("completed_count").notNull(),
-  pendingCount: integer("pending_count").notNull(),
-  overdueCount: integer("overdue_count").notNull(),
-  generatedAt: timestamp("generated_at").defaultNow().notNull(),
-});
+export const projectAiSummaries = pgTable(
+  "project_ai_summaries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    projectId: uuid("project_id")
+      .references(() => projects.id, { onDelete: "cascade" })
+      .notNull(),
+    summaryText: text("summary_text").notNull(),
+    totalCount: integer("total_count").notNull(),
+    completedCount: integer("completed_count").notNull(),
+    pendingCount: integer("pending_count").notNull(),
+    overdueCount: integer("overdue_count").notNull(),
+    generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    projectAiSummariesProjectGeneratedIdx: index("project_ai_summaries_project_generated_idx").on(
+      table.projectId,
+      table.generatedAt
+    ),
+  })
+);
 
 // ─────────────────────────────────────────────
 // TABLE: dashboard_weekly_rundowns
 // Persisted weekly dashboard snapshot for stable rendering
 // ─────────────────────────────────────────────
-export const dashboardWeeklyRundowns = pgTable("dashboard_weekly_rundowns", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  weekStart: timestamp("week_start").notNull(),
-  recommendationText: text("recommendation_text").notNull(),
-  winsJson: text("wins_json").notNull(),
-  stalledJson: text("stalled_json").notNull(),
-  nextActionsJson: text("next_actions_json").notNull(),
-  generatedAt: timestamp("generated_at").defaultNow().notNull(),
-});
+export const dashboardWeeklyRundowns = pgTable(
+  "dashboard_weekly_rundowns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    weekStart: timestamp("week_start").notNull(),
+    recommendationText: text("recommendation_text").notNull(),
+    winsJson: text("wins_json").notNull(),
+    stalledJson: text("stalled_json").notNull(),
+    nextActionsJson: text("next_actions_json").notNull(),
+    generatedAt: timestamp("generated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    dashboardWeeklyWeekGeneratedIdx: index("dashboard_weekly_week_generated_idx").on(
+      table.weekStart,
+      table.generatedAt
+    ),
+  })
+);
 
 // ─────────────────────────────────────────────
 // TABLE: ai_automations
@@ -328,14 +375,23 @@ export const performanceSnapshots = pgTable("performance_snapshots", {
 // TABLE: manager_observations
 // Raw manager notes about engineers throughout the quarter
 // ─────────────────────────────────────────────
-export const managerObservations = pgTable("manager_observations", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  memberId: uuid("member_id")
-    .references(() => teamMembers.id, { onDelete: "cascade" })
-    .notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const managerObservations = pgTable(
+  "manager_observations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    memberId: uuid("member_id")
+      .references(() => teamMembers.id, { onDelete: "cascade" })
+      .notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    managerObservationsMemberCreatedIdx: index("manager_observations_member_created_idx").on(
+      table.memberId,
+      table.createdAt
+    ),
+  })
+);
 
 // ─────────────────────────────────────────────
 // RELATIONS

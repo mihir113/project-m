@@ -15,6 +15,13 @@
       "when": 1774427241846,
       "tag": "0001_stiff_spyke",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774428046382,
+      "tag": "0002_flippant_nocturne",
+      "breakpoints": true
     }
   ]
 }
