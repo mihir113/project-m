@@ -1,29 +1,26 @@
 # Project M
 
-## Simple Single-User Auth
+## Supabase Auth (email/password)
 
-This app now includes a lightweight auth gate suitable for a single internal user.
+This app now uses Supabase Auth for sign-in and route protection.
 
 ### Required environment variables
 
 Add these to `.env.local` (and production env):
 
 ```env
-APP_AUTH_PASSWORD=your-strong-password
-APP_AUTH_TOKEN=some-long-random-secret-token
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+CRON_SECRET=...
 ```
-
-- `APP_AUTH_PASSWORD`: password entered on `/login`
-- `APP_AUTH_TOKEN`: server-side token stored in an httpOnly cookie after login
 
 ### Behavior
 
 - Unauthenticated browser users are redirected to `/login`
-- API routes require auth cookie, except cron/integration calls that include `x-cron-secret` with `CRON_SECRET`
-- Login endpoint: `POST /api/auth/login`
-- Logout endpoint: `POST /api/auth/logout`
+- Login page uses Supabase email/password sign-in
+- API routes require authenticated Supabase session, except cron/integration calls that include `x-cron-secret` with `CRON_SECRET`
 
 ### Notes
 
-- Keep both secrets long/random in production
-- This is app-layer auth and complements DB hardening / RLS strategy
+- Drizzle + pg data access remains unchanged; Supabase Auth gates app access/session.
+- This auth layer complements DB hardening / RLS strategy.

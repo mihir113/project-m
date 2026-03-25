@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_COOKIE_NAME } from "@/lib/auth";
+import { createServerClient } from "@supabase/ssr";
 
 function isPublicPath(pathname: string) {
   return pathname === "/login" || pathname.startsWith("/_next") || pathname === "/favicon.ico";
@@ -12,23 +12,39 @@ function isCronAuthorized(req: NextRequest) {
   return token === cronSecret;
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (isPublicPath(pathname) || pathname.startsWith("/api/auth/")) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  const appAuthToken = process.env.APP_AUTH_TOKEN;
-  if (!appAuthToken) {
-    return NextResponse.json(
-      { error: "APP_AUTH_TOKEN is not configured" },
-      { status: 500 }
-    );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.json({ error: "Supabase env vars are not configured" }, { status: 500 });
   }
 
-  const hasAuthCookie = req.cookies.get(AUTH_COOKIE_NAME)?.value === appAuthToken;
-  if (hasAuthCookie) return NextResponse.next();
+  const res = NextResponse.next();
+  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return req.cookies.getAll();
+      },
+      setAll() {
+        // no-op in middleware; session refresh is handled by client auth flow
+      },
+    },
+  });
+
+  const { data, error } = await supabase.auth.getUser();
+  const isAuthed = Boolean(!error && data.user);
+
+  if (isAuthed && pathname === "/login") {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  if (isAuthed) return res;
 
   if (pathname.startsWith("/api/")) {
     if (isCronAuthorized(req)) return NextResponse.next();
